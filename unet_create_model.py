@@ -27,6 +27,9 @@ DROPOUT = 0.1
 ACTIVATION = ELU
 INIT = "he_normal"
 
+kernel_size = 3
+filters = 16
+num_conv = 3
 reg_strength = float(10**-12)
 REG = l2(reg_strength)
 
@@ -37,19 +40,28 @@ def self_outer(x):
     outer_x = x[ :, :, None, :] * x[ :, None, :, :]
     return outer_x
 
-def add_2D_conv(model, filters, kernel_size, 
-        data_format="channels_last", padding="same",depthwise_initializer=INIT, 
-        depthwise_regularizer=REG, dropout=True):
+def add_2D_conv(model, filters, kernel_size, data_format="channels_last", padding="same", 
+        depthwise_initializer=INIT, pointwise_initializer=INIT, depthwise_regularizer=REG, 
+        pointwise_regularizer=REG, separable=True, namesuffix=""):
 
-    model = Conv2D(filters, kernel_size, data_format = data_format, 
-            padding = padding, kernel_initializer = depthwise_initializer, kernel_regularizer = depthwise_regularizer)(model)
-    model = ACTIVATION()(model)
+    if separable:
+        raise ValueError('Separable!')
+    
+    if namesuffix:
+        model = Conv2D(filters, kernel_size, data_format = data_format, padding = padding, 
+                kernel_initializer = depthwise_initializer, kernel_regularizer = depthwise_regularizer, 
+                name = "separable_conv2d_" + namesuffix)(model)
 
-    model = BatchNormalization()(model)
-    if dropout:
+        model = ACTIVATION(name="activation_" + namesuffix)(model)
+        model = BatchNormalization(name="batch_normalization_" + namesuffix)(model)
+        model = Dropout(DROPOUT, name="dropout_" + namesuffix)(model)
+    else:
+        model = Conv2D(filters, kernel_size, data_format=data_format, padding=padding, kernel_initializer=depthwise_initializer, kernel_regularizer=depthwise_regularizer)(model)
+        model = ACTIVATION()(model)
+        model = BatchNormalization()(model)
         model = Dropout(DROPOUT)(model)
-
     return model
+
 
 def _add_binary_head(model, dist_cutoff, kernel_size):
     
@@ -73,6 +85,14 @@ def create_unet(filters=64,ss_model_path = "/home/ashenoy/ashenoy/aditi_retrain_
 
     seq_feature_model = ss_model._layers_by_depth[5][0]
 
+    assert 'model' in seq_feature_model.name, seq_feature_model.name
+    seq_feature_model.name = 'sequence_features'
+    seq_feature_model.trainable = False
+    for l in ss_model.layers:
+        l.trainable = False
+    for l in seq_feature_model.layers:
+        l.trainable = False
+
     bottleneck_seq = seq_feature_model(inputs_seq)
     model_1D_outer = Lambda(self_outer)(bottleneck_seq)
     model_1D_outer = BatchNormalization()(model_1D_outer)
@@ -86,68 +106,68 @@ def create_unet(filters=64,ss_model_path = "/home/ashenoy/ashenoy/aditi_retrain_
     unet = keras.layers.concatenate(inputs_2D + [model_1D_outer])
     
     #Downsampling
-    unet = add_2D_conv(unet, filters, 1)
-    unet = add_2D_conv(unet, filters, 3)
-    unet = add_2D_conv(unet, filters, 3)
+    unet = add_2D_conv(unet, filters, 1, separable=False)
+    unet = add_2D_conv(unet, filters, 3, separable=False)
+    unet = add_2D_conv(unet, filters, 3, separable=False)
 
     link1 = unet
 
     unet = MaxPooling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters*2, 3)
-    unet = add_2D_conv(unet, filters*2, 3)
+    unet = add_2D_conv(unet, filters*2, 3, separable=False)
+    unet = add_2D_conv(unet, filters*2, 3, separable=False)
 
     link2 = unet
 
     unet = MaxPooling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters*4, 3)
-    unet = add_2D_conv(unet, filters*4, 3)
+    unet = add_2D_conv(unet, filters*4, 3, separable=False)
+    unet = add_2D_conv(unet, filters*4, 3, separable=False)
 
     link3 = unet
    
     unet = MaxPooling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters*8, 3)
-    unet = add_2D_conv(unet, filters*8, 3)
+    unet = add_2D_conv(unet, filters*8, 3, separable=False)
+    unet = add_2D_conv(unet, filters*8, 3, separable=False)
 
     link4 = unet
 
     unet = MaxPooling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters*16, 3)
-    unet = add_2D_conv(unet, filters*16, 3)
+    unet = add_2D_conv(unet, filters*16, 3, separable=False)
+    unet = add_2D_conv(unet, filters*16, 3, separable=False)
 
     #Upsampling
     unet = UpSampling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters*8, 2)
+    unet = add_2D_conv(unet, filters*8, 2, separable=False)
 
     unet = keras.layers.concatenate([unet, link4])
 
-    unet = add_2D_conv(unet, filters*8, 3)
-    unet = add_2D_conv(unet, filters*8, 3)
+    unet = add_2D_conv(unet, filters*8, 3, separable=False)
+    unet = add_2D_conv(unet, filters*8, 3, separable=False)
 
     unet = UpSampling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters*4, 2)
+    unet = add_2D_conv(unet, filters*4, 2, separable=False)
 
     unet = keras.layers.concatenate([unet, link3])
 
-    unet = add_2D_conv(unet, filters*4, 3)
-    unet = add_2D_conv(unet, filters*4, 3)
+    unet = add_2D_conv(unet, filters*4, 3, separable=False)
+    unet = add_2D_conv(unet, filters*4, 3, separable=False)
 
     unet = UpSampling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters*2, 2)
+    unet = add_2D_conv(unet, filters*2, 2, separable=False)
 
     unet = keras.layers.concatenate([unet, link2])
 
-    unet = add_2D_conv(unet, filters*2, 3)
-    unet = add_2D_conv(unet, filters*2, 3)
+    unet = add_2D_conv(unet, filters*2, 3, separable=False)
+    unet = add_2D_conv(unet, filters*2, 3, separable=False)
 
     unet = UpSampling2D(data_format = "channels_last")(unet)
-    unet = add_2D_conv(unet, filters, 2)
+    unet = add_2D_conv(unet, filters, 2, separable=False)
 
     unet = keras.layers.concatenate([unet, link1])
 
     split = unet
 
-    unet = add_2D_conv(unet, filters, 3)
-    unet = add_2D_conv(unet, filters, 3)
+    unet = add_2D_conv(unet, filters, 3, separable=False)
+    unet = add_2D_conv(unet, filters, 3, separable=False)
 
     out_binary_lst = []
 
@@ -158,8 +178,8 @@ def create_unet(filters=64,ss_model_path = "/home/ashenoy/ashenoy/aditi_retrain_
     print (out_binary_lst)
     print ()
 
-    unet = add_2D_conv(split, filters, 3)
-    unet = add_2D_conv(unet, filters, 3)
+    unet = add_2D_conv(split, filters, 3, separable=False)
+    unet = add_2D_conv(unet, filters, 3, separable=False)
 
     out_dist = Conv2D(12, 7, activation = "softmax", data_format = "channels_last", 
             padding = "same", kernel_initializer = INIT, kernel_regularizer = REG, 
@@ -167,8 +187,6 @@ def create_unet(filters=64,ss_model_path = "/home/ashenoy/ashenoy/aditi_retrain_
 
     print (out_dist)
     model = Model(inputs = inputs_2D + inputs_seq, outputs = [out_dist] + out_binary_lst)
-
-    model.trainable = False
 
     return model
 
@@ -193,7 +211,7 @@ def _wrap_model(model, binary_cutoffs):
     out_lst = model(inputs_2D + inputs_seq)
     out_mask_lst = []
 
-    out_names = ["out_dist"] + ["out_binary_%s_mask" % d for d in binary_cutoffs]
+    out_names = ["out_dist_mask"] + ["out_binary_%s_mask" % d for d in binary_cutoffs]
 
     for i, out in enumerate(out_lst):
 
@@ -201,8 +219,6 @@ def _wrap_model(model, binary_cutoffs):
         out_mask_lst.append(out)
 
     wrapped_model = Model(inputs = inputs_2D + inputs_seq + [input_mask], outputs = out_mask_lst)
-
-    wrapped_model.trainable = False
 
     return wrapped_model
 
@@ -219,7 +235,6 @@ if __name__ == "__main__":
     model = create_unet(binary_cutoffs = binary_cutoffs)
     print (model.summary())
     model = _wrap_model(model, binary_cutoffs)
-    print (model.summary())
     model.save(modelfile)
 
 
