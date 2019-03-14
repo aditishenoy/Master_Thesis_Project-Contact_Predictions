@@ -3,42 +3,25 @@ from __future__ import division
 "-------------------------------------------------------------------"
 #Calling libraries and initialization of variables
 import os
-from collections import namedtuple
 import sys
 import h5py
 import numpy as np
-import keras
-import keras.backend as K
-from keras.regularizers import l2
-from keras.models import Model, load_model
-from keras.layers import Input, Dropout, BatchNormalization
-from keras.layers import Conv2D, Conv1D, MaxPooling2D, UpSampling2D
-from keras.layers.core import Lambda
-from keras.layers.advanced_activations import ELU
-from keras.layers import Activation
 
-
-#####
-
-import random
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from collections import defaultdict
 from sklearn.externals import joblib
 from sklearn import preprocessing
+from collections import defaultdict, namedtuple
+
 import keras
 import keras.backend as K
 from keras.regularizers import l2
-from keras.models import Model, load_model
-from keras.layers import Input, Dropout, BatchNormalization
-from keras.layers import Conv2D, SeparableConv2D, Conv1D, MaxPooling2D, UpSampling2D
+from keras.layers import Activation
 from keras.layers.core import Lambda
-from keras.layers.advanced_activations import ELU, LeakyReLU
-from keras.layers.merge import concatenate
+from keras.models import Model, load_model
 from keras.utils import np_utils, plot_model
-from keras.callbacks import ReduceLROnPlateau, CSVLogger, ModelCheckpoint, TensorBoard
-
+from keras.layers.merge import concatenate
+from keras.layers import Input, Dropout, BatchNormalization
+from keras.layers.advanced_activations import ELU, LeakyReLU
+from keras.layers import Conv2D, Conv1D, MaxPooling2D, UpSampling2D
 
 DROPOUT = 0.1
 ACTIVATION = ELU
@@ -240,16 +223,5 @@ if __name__ == "__main__":
     model.save(modelfile)
 
 
-
-
-    
-
-
-
-
-
-
-
-
-
+"-------------------------------------------------------------------"
 
