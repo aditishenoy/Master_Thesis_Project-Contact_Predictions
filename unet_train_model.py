@@ -217,7 +217,7 @@ def train(infile, modelfile, suffix = "",
     
     model = load_model(modelfile)
 
-    loss_dict = {"out_dist_mask" : keras.losses.binary_crossentropy}
+    loss_dict = {"out_dist_mask" : keras.losses.categorical_crossentropy}
     loss_weight_dict = {"out_dist_mask": 1}
 
     for d in binary_cutoffs:
@@ -248,7 +248,6 @@ def train(infile, modelfile, suffix = "",
     feats, labels = next(validation_generator)
     for k, v in labels.items():
         print (k, v.shape)
-     
     test_data = None
     
     if test_data_file:

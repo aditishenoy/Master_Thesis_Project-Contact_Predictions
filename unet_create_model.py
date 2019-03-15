@@ -85,6 +85,7 @@ def create_unet(filters=64,ss_model_path = "/home/ashenoy/ashenoy/aditi_retrain_
 
     seq_feature_model = ss_model._layers_by_depth[5][0]
 
+    #Increase No. of training parameters if commented out
     assert 'model' in seq_feature_model.name, seq_feature_model.name
     seq_feature_model.name = 'sequence_features'
     seq_feature_model.trainable = False
@@ -206,16 +207,20 @@ def _wrap_model(model, binary_cutoffs):
             Input(shape = (None, None, 1), dtype = K.floatx(), name = 'nmi_corr'), 
             Input(shape = (None, None, 1), dtype = K.floatx(), name = 'cross_h')]
 
-    input_mask = Input(shape = (None, None, 1), name = 'mask') #Masking missing residues
-
     out_lst = model(inputs_2D + inputs_seq)
     out_mask_lst = []
 
     out_names = ["out_dist_mask"] + ["out_binary_%s_mask" % d for d in binary_cutoffs]
-
+    
+    # input for masking missing residues
+    input_mask = Input(shape=(None, None, 1), name="mask")
+    
     for i, out in enumerate(out_lst):
-
-        out = keras.layers.Multiply(name = out_names[i])([out, input_mask])
+        if out_names[i] != "out_dist_mask":
+            out = keras.layers.Multiply(name = out_names[i])([out, input_mask])
+        else:
+            #out = keras.layers.Lambda(lambda x: x + 0, input_shape=(None, None, 12), name="out_dist_mask")(out)
+            out = keras.layers.Dropout(0, name="out_dist_mask")(out)
         out_mask_lst.append(out)
 
     wrapped_model = Model(inputs = inputs_2D + inputs_seq + [input_mask], outputs = out_mask_lst)
