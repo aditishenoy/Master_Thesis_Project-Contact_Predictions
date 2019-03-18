@@ -182,7 +182,7 @@ def create_unet(filters=64,ss_model_path = "/home/ashenoy/ashenoy/aditi_retrain_
     unet = add_2D_conv(split, filters, 3, separable=False)
     unet = add_2D_conv(unet, filters, 3, separable=False)
 
-    out_dist = Conv2D(12, 7, activation = "softmax", data_format = "channels_last", 
+    out_dist = Conv2D(26, 7, activation = "softmax", data_format = "channels_last", 
             padding = "same", kernel_initializer = INIT, kernel_regularizer = REG, 
             name = "out_dist")(unet)
 
