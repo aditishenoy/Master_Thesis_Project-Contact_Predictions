@@ -18,7 +18,7 @@ import tqdm
 three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS': 'K', 'PRO': 'P', 'GLY': 'G',
                 'CYS': 'C', 'THR': 'T', 'SER': 'S', 'MET': 'M', 'TRP': 'W', 'PHE': 'F', 'TYR': 'Y', 'HIS': 'H',
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
-prob_len = 4
+prob_len = 12
 
 '-------------------------------------------------------------------'
 # Support to build functions
@@ -101,7 +101,7 @@ def parse_pdb(pdb):
     for i in ca:
         for j in ca:
             if abs(i - j) > 5 and j > i:
-                cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j]) < 8
+                cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j])
     return cmap
 
 def parse_contact_matrix(data):
@@ -114,12 +114,152 @@ def parse_contact_matrix(data):
     return contacts
 
 '-------------------------------------------------------------------'
-#Performance metrics (ppv)
+#Performance metrics (absolute error, relative error)
 
-def compute_ppv(contacts, l_threshold, range_, pdb_parsed):
+def absolute_error(contacts, pdb_parsed):
+    actual_pdb = {}
+    pred_contacts = {}
+    pred_zipped = {}
+    pred_single = {}
+    ind_dict = {}
 
-    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
+    for k, v in pdb_parsed.items():
+        if (v < 15):
+            actual_pdb[k] = v
+
+    for k, v in contacts.items():
+        if k in actual_pdb.keys():
+            pred_contacts[k] = v
+            
+    bins = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    for k, v in (pred_contacts.items()):
+        pred_zipped[k] =  [i*j for i, j in zip(v, bins)]
     
+    #print (pred_zipped)
+
+    for k, v in pred_zipped.items():
+        sum_prob = 0
+        count = 0
+        for n in v:
+            if count <  prob_len:
+                sum_prob += n
+                count += 1
+            else:
+                break
+        
+        pred_single[k] = (sum_prob)
+
+    print (pred_single)
+    print (actual_pdb)
+
+
+    '''
+    for k, v in pdb_parsed.items():
+        if (v < 15) and k in contacts:
+            #if pdb_parsed[(i, j)]:
+            #print (contacts[v])
+            #print (v)
+
+        max_prob = np.max(v)
+        print (max_prob)
+        index_max = np.where(v == max_prob)
+        if index_max == 11:
+            print (index_max)
+        '''
+    
+    #print (pdb_parsed)
+    #print (contacts)
+
+
+
+
+'-------------------------------------------------------------------'
+
+lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
+
+model_name = 'M_12_A_mae_trained'
+model_n = 'M_12_A'
+
+m = load_model('{}.h5'.format(model_name))
+
+'''
+import pickle
+out_pred = 'results_15_{}'.format(model_name)
+print()
+print(out_pred)
+print()
+output = open(out_pred, 'wb')
+'''
+
+out_pm = 'results_{}'.format(model_name)
+print()
+print(out_pm)
+print()
+output = open(out_pm, 'wb')
+
+for epoch in tqdm.trange(1, 3, desc = 'Epoch'):
+
+    weights_path = 'models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
+
+    weights = glob.glob(weights_path)[0]
+
+    m.load_weights(weights)
+
+    #ppv = []
+
+    ab_err = []
+    rel_err = []
+    prec = []
+    recall = []
+    f1 = []
+    acc = []
+
+
+    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmark_set/*.npz'), desc='Protein'):
+        data_batch = dict(np.load(data_file))
+        data_batch['mask'][:] = 1
+
+        pred = m.predict(data_batch)[0]
+        #print (pred)
+        print (pred.shape)       
+        
+        '''
+        #Save predictions to file
+        output = open(out_pred, 'wb')
+        pickle.dump(pred, output)
+        print()
+        output.close()
+        '''
+
+        prot_name = data_file.split('/')[-1].split('.')[0]
+        length = lengths[prot_name]
+        
+        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmarkset/{}/native.pdb'.format(prot_name))
+        contacts_parsed = parse_contact_matrix(pred.squeeze())
+
+        ab_error = absolute_error(contacts_parsed, pdb_parsed)
+
+        '''
+        #Save ppv to file
+        this_ppv = compute_ppv(contacts_parsed, 1, 'all', pdb_parsed)
+        ppv.append(this_ppv)
+        output = open(out_f, 'w')
+        print(epoch, np.mean(ppv), np.median(ppv), file=output, flush=True)
+        print()
+        print()
+        output.close()
+        '''
+
+#os.system('cat results_*')
+
+'-------------------------------------------------------------------'
+
+
+
+
+"""def compute_ppv(contacts, l_threshold, range_, pdb_parsed):
+    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
     contact_list = [(i, j, sc) for (i, j), sc in contacts.items() if low < j - i <= hi]
     
     #contact_sort = contact_list.sort(key=lambda x: x[2].all(), reverse=True)
@@ -151,7 +291,7 @@ def compute_ppv(contacts, l_threshold, range_, pdb_parsed):
     selected = int(round(l_threshold * max(max(k) for k in contacts)))
     sum_list = sum_list[:selected]
     #print(sum_list)
-    '''
+    
     pos_counter = 0
     total_counter = 0
     for i, j, _ in sum_list:
@@ -163,65 +303,6 @@ def compute_ppv(contacts, l_threshold, range_, pdb_parsed):
     if total_counter == 0:
         total_counter = 1
     return pos_counter / total_counter
-'''
-'-------------------------------------------------------------------'
+"""
 
-lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
-
-model_name = 'M_26_mae_trained'
-model_n = 'M_26'
-m = load_model('{}.h5'.format(model_name))
-
-
-import pickle
-out_f = 'results_15_{}'.format(model_name)
-print()
-print(out_f)
-print()
-output = open(out_f, 'wb')
-
-for epoch in tqdm.trange(1, 3, desc = 'Epoch'):
-
-    weights_path = 'models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
-
-    weights = glob.glob(weights_path)[0]
-    #print (weights)
-
-    m.load_weights(weights)
-
-    ppv = []
-
-
-    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmark_set/*.npz'), desc='Protein'):
-        data_batch = dict(np.load(data_file))
-        data_batch['mask'][:] = 1
-
-        pred = m.predict(data_batch)[0]
-        #print (pred)
-        
-        output = open(out_f, 'wb')
-        pickle.dump(pred, output)
-        print()
-        output.close()
-
-
-        print (pred.shape)        
-        prot_name = data_file.split('/')[-1].split('.')[0]
-        length = lengths[prot_name]
-        
-        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmarkset/{}/native.pdb'.format(prot_name))
-        contacts_parsed = parse_contact_matrix(pred.squeeze())
-
-        '''
-        this_ppv = compute_ppv(contacts_parsed, 1, 'all', pdb_parsed)
-        ppv.append(this_ppv)
-        output = open(out_f, 'w')
-        print(epoch, np.mean(ppv), np.median(ppv), file=output, flush=True)
-        print()
-        print()
-        output.close()
-        '''
-#os.system('cat results_*')
-
-'-------------------------------------------------------------------'
 
