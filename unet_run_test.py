@@ -19,8 +19,9 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
                 'CYS': 'C', 'THR': 'T', 'SER': 'S', 'MET': 'M', 'TRP': 'W', 'PHE': 'F', 'TYR': 'Y', 'HIS': 'H',
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
 
-prob_len = 12
+prob_len = 5
 
+#bins = [0, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
 bins = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 '-------------------------------------------------------------------'
 # Support to build functions
@@ -126,7 +127,7 @@ def error_metrics(contacts, pdb_parsed):
     ind_dict = {}
 
     for k, v in pdb_parsed.items():
-        if (v < 15):
+        if (v < 8):
             actual_pdb[k] = v
 
     for k, v in contacts.items():
@@ -143,7 +144,7 @@ def error_metrics(contacts, pdb_parsed):
         sum_prob = 0
         count = 0
         for n in v:
-            if count <  prob_len:
+            if count <=  prob_len:
                 sum_prob += n
                 count += 1
             else:
@@ -166,31 +167,22 @@ def error_metrics(contacts, pdb_parsed):
 # Performance metrics (Precision, Recall, F1)
 def alt_metrics(contacts, pdb_parsed):
     actual_pdb = {}
-    pred_contacts = {}
     pred_zipped = {}
     pred_single = {}
+    pred_single_15 = {}
     
     for k, v in pdb_parsed.items():
-        if (v < 15):
+        if (v < 8):
             actual_pdb[k] = v
-    
-    '''
-    for k, v in contacts.items():
-        if k in actual_pdb.keys():
-            pred_contacts[k] = v
-            
-    '''
 
-    for k, v in (actual_pdb.items()):
+    for k, v in (contacts.items()):
         pred_zipped[k] =  [i*j for i, j in zip(v, bins)]
     
-    #print (pred_zipped)
-
     for k, v in pred_zipped.items():
         sum_prob = 0
         count = 0
         for n in v:
-            if count <  prob_len:
+            if count <=  prob_len:
                 sum_prob += n
                 count += 1
             else:
@@ -199,43 +191,68 @@ def alt_metrics(contacts, pdb_parsed):
         pred_single[k] = (sum_prob)
 
     prec = []
+    rec = []
+    f1 = []
 
-    for k, v in actual_pdb.items():
+    for k, v in pred_single.items():
+        if (v < 8):
+            pred_single_15[k] = v
+
+
+    for k, v in pred_single.items():
         count_n = 0
-        count_p = 0
-        if k in (pred_single.keys()):
-            count_p += 1
-        count_n += 1
+        count_p = 0 
+        if k in (actual_pdb.keys()):
+            count_n += 1
+            if (v < 8):
+                count_p += 1
 
+        if count_n == 0:
+            count_n = 1
         prec.append(count_p/count_n)
+        
+    for k, v in pdb_parsed.items():
+        count_n = 0
+        count_p = 0 
+        if k in (pred_single_15.keys()):
+            count_n += 1
+            if (v < 8):
+                count_p += 1
 
-    return prec
+        if count_n == 0:
+            count_n = 1
+        rec.append(count_p/count_n)
+    
+    #f1.append(((2*i*j)/(i+j)) for i, j in zip(prec, rec))
+    
+
+    return prec, rec
 
 '-------------------------------------------------------------------'
 
 lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
 
-model_name = 'M_12_A_mae_trained'
-model_n = 'M_12_A'
+model_name = 'M_12_E100_mae_trained'
+model_n = 'M_12_E100'
 
 m = load_model('{}.h5'.format(model_name))
 
 '''
 import pickle
-out_pred = 'results_15_{}'.format(model_name)
+out_pred = 'results_15_8A_{}'.format(model_name)
 print()
 print(out_pred)
 print()
 output = open(out_pred, 'wb')
 '''
 
-out_pm = 'results_{}'.format(model_name)
+out_pm = '15P_results_{}'.format(model_name)
 print()
 print(out_pm)
 print()
 output = open(out_pm, 'w')
 
-for epoch in tqdm.trange(1, 3, desc = 'Epoch'):
+for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
 
     weights_path = 'models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
 
@@ -245,13 +262,7 @@ for epoch in tqdm.trange(1, 3, desc = 'Epoch'):
 
     #ppv = []
 
-    prec = []
-    recall = []
-    f1 = []
-    acc = []
-
-
-    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
+    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
 
@@ -270,74 +281,21 @@ for epoch in tqdm.trange(1, 3, desc = 'Epoch'):
         prot_name = data_file.split('/')[-1].split('.')[0]
         length = lengths[prot_name]
         
-        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
+        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
 
         ab_error, rel_error = error_metrics(contacts_parsed, pdb_parsed)
-        prec = alt_metrics(contacts_parsed, pdb_parsed)
-
-        print(prec)
-        '''
+        prec, recall = alt_metrics(contacts_parsed, pdb_parsed)
 
         #Save metrics to file
         output = open(out_pm, 'w')
-        print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), file=output, flush=True)
+        print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), (np.mean(prec)*100), (np.mean(recall)*100), file=output, flush=True)
         print()
         print()
         output.close()
-'''
+
 #os.system('cat results_*')
 
 '-------------------------------------------------------------------'
-
-
-
-
-"""def compute_ppv(contacts, l_threshold, range_, pdb_parsed):
-    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
-    contact_list = [(i, j, sc) for (i, j), sc in contacts.items() if low < j - i <= hi]
-    
-    #contact_sort = contact_list.sort(key=lambda x: x[2].all(), reverse=True)
-    #print (contact_list)
-    #selected = int(round(l_threshold * max(max(k) for k in contacts)))
-    #contact_list = contact_list[:selected]
-    #sum_list = contact_list[:selected]
-    #print (contact_list)
-
-    sum_list = []
-
-    for i, j, sc in contact_list:
-        sum_prob = 0
-        sum_l = []
-        count = 0
-        for n in sc:
-            if count <  prob_len:
-                sum_prob += n
-                count += 1
-            else:
-                break
-        sum_l.append(i)
-        sum_l.append(j)
-        sum_l.append(sum_prob)
-        sum_list.append(tuple(sum_l))
-
-    #print(sum_list)
-    sum_list.sort(key=lambda x: x[2].all(), reverse=True)
-    selected = int(round(l_threshold * max(max(k) for k in contacts)))
-    sum_list = sum_list[:selected]
-    #print(sum_list)
-    
-    pos_counter = 0
-    total_counter = 0
-    for i, j, _ in sum_list:
-        if (i, j) in pdb_parsed:
-            if pdb_parsed[(i, j)]:
-                pos_counter += 1
-            total_counter += 1
-
-    if total_counter == 0:
-        total_counter = 1
-    return pos_counter / total_counter
-"""
 
 

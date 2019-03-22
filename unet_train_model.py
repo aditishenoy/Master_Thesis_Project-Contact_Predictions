@@ -32,15 +32,15 @@ def generator_from_file(h5file, feat_lst, label, binary_cutoffs, batch_size = 1)
 
     x_i_dict, mask, y, y_binary_dict, L = get_datapoint(h5file, feat_lst, label, binary_cutoffs, key)
     
-    bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
-    #bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    #bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
+    bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
  
     batch_features_dict = x_i_dict
     batch_features_dict["mask"] = mask
 
     batch_labels_dict = {}
     y = np.searchsorted(bins, y)
-    y = to_categorical(y, num_classes = 26)
+    y = to_categorical(y, num_classes = 12)
     batch_labels_dict["out_%s_mask" % label] = y
 
     for d, y_binary in y_binary_dict.items():
@@ -124,8 +124,8 @@ def get_data(h5file, feat_lst, label, binary_cutoffs, pad_even = False, val_id_l
 
     id_lst = []
     len_dict = []
-    bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
-    #bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    #bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
+    bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
     assert h5file[label].keys() == h5file[feat_lst[0]].keys()
 
@@ -139,7 +139,7 @@ def get_data(h5file, feat_lst, label, binary_cutoffs, pad_even = False, val_id_l
                 val_x_dict[feat].append(x_i)
             val_x_dict["mask"].append(mask)
             y = np.searchsorted(bins, y)
-            y = to_categorical(y, num_classes = 26)
+            y = to_categorical(y, num_classes = 12)
             
             val_y_dict["out_%s_mask" % label].append(y)
             
@@ -150,7 +150,7 @@ def get_data(h5file, feat_lst, label, binary_cutoffs, pad_even = False, val_id_l
                 data_x_dict[feat].append(x_i)
             data_x_dict["mask"].append(mask)
             y = np.searchsorted(bins, y)
-            y = to_categorical(y, num_classes = 26)
+            y = to_categorical(y, num_classes = 12)
             data_y_dict["out_%s_mask" % label].append(y)
             for d, y_binary in y_binary_dict.items():
                 data_y_dict["out_binary_%s_mask" % d].append(y_binary)
@@ -228,7 +228,7 @@ def train(infile, modelfile, suffix = "",
     model.compile(loss = loss_dict, loss_weights = loss_weight_dict, optimizer = keras.optimizers.Adam(), metrics = ['mae', 'mse'])
 
     batch_size = 1
-    epochs = 50
+    epochs = 100
     verbose = 1
 
     with open(val_id_file) as val_id_f:
@@ -301,9 +301,6 @@ if __name__ == "__main__":
     binary_cutoffs = [6, 8, 10]
 
     f = h5py.File(train_data, "r")
-
-    with open(val_id_file) as val_id_f:
-        val_id_lst = val_id_f.read().splitlines()
 
     model = train(train_data, modelfile, suffix=suffix, feat_lst=feat_lst, binary_cutoffs=binary_cutoffs,
                   test_data_file=test_data, val_id_file = val_id_file)
