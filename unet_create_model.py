@@ -27,11 +27,12 @@ DROPOUT = 0.1
 ACTIVATION = ELU
 INIT = "he_normal"
 
+no_bins = 12 
 kernel_size = 3
 filters = 16
 num_conv = 3
 reg_strength = float(10**-9)
-REG = l2(reg_strength)
+REG = None
 
 "-------------------------------------------------------------------"
 #Definition of functions needed for u-net architecture
@@ -182,7 +183,7 @@ def create_unet(filters=64,ss_model_path = "/home/ashenoy/ashenoy/aditi_retrain_
     unet = add_2D_conv(split, filters, 3, separable=False)
     unet = add_2D_conv(unet, filters, 3, separable=False)
 
-    out_dist = Conv2D(12, 7, activation = "softmax", data_format = "channels_last", 
+    out_dist = Conv2D(no_bins, 7, activation = "softmax", data_format = "channels_last", 
             padding = "same", kernel_initializer = INIT, kernel_regularizer = REG, 
             name = "out_dist")(unet)
 

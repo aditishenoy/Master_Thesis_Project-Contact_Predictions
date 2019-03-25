@@ -20,9 +20,11 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
 
 prob_len = 5
+thres = 15
 
 #bins = [0, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
 bins = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
 '-------------------------------------------------------------------'
 # Support to build functions
 
@@ -127,7 +129,7 @@ def error_metrics(contacts, pdb_parsed):
     ind_dict = {}
 
     for k, v in pdb_parsed.items():
-        if (v < 8):
+        if (v < thres):
             actual_pdb[k] = v
 
     for k, v in contacts.items():
@@ -172,7 +174,7 @@ def alt_metrics(contacts, pdb_parsed):
     pred_single_15 = {}
     
     for k, v in pdb_parsed.items():
-        if (v < 8):
+        if (v < thres):
             actual_pdb[k] = v
 
     for k, v in (contacts.items()):
@@ -195,7 +197,7 @@ def alt_metrics(contacts, pdb_parsed):
     f1 = []
 
     for k, v in pred_single.items():
-        if (v < 8):
+        if (v < thres):
             pred_single_15[k] = v
 
 
@@ -204,7 +206,7 @@ def alt_metrics(contacts, pdb_parsed):
         count_p = 0 
         if k in (actual_pdb.keys()):
             count_n += 1
-            if (v < 8):
+            if (v < thres):
                 count_p += 1
 
         if count_n == 0:
@@ -216,7 +218,7 @@ def alt_metrics(contacts, pdb_parsed):
         count_p = 0 
         if k in (pred_single_15.keys()):
             count_n += 1
-            if (v < 8):
+            if (v < thres):
                 count_p += 1
 
         if count_n == 0:
@@ -239,14 +241,14 @@ m = load_model('{}.h5'.format(model_name))
 
 '''
 import pickle
-out_pred = 'results_15_8A_{}'.format(model_name)
+out_pred = 'results_{}'.format(model_name)
 print()
 print(out_pred)
 print()
 output = open(out_pred, 'wb')
 '''
 
-out_pm = '15P_results_{}'.format(model_name)
+out_pm = 'results_{}'.format(model_name)
 print()
 print(out_pm)
 print()
@@ -262,7 +264,7 @@ for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
 
     #ppv = []
 
-    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmark_set/*.npz'), desc='Protein'):
+    for data_file in tqdm.tqdm(glob.glob('//home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
 
