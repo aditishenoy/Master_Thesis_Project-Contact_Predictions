@@ -27,12 +27,12 @@ DROPOUT = 0.1
 ACTIVATION = ELU
 INIT = "he_normal"
 
-no_bins = 12 
+no_bins = 26 
 kernel_size = 3
 filters = 16
 num_conv = 3
-reg_strength = float(10**-9)
-REG = None
+reg_strength = float(10**-5)
+REG = l2(reg_strength)
 
 "-------------------------------------------------------------------"
 #Definition of functions needed for u-net architecture

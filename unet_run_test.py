@@ -19,12 +19,11 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
                 'CYS': 'C', 'THR': 'T', 'SER': 'S', 'MET': 'M', 'TRP': 'W', 'PHE': 'F', 'TYR': 'Y', 'HIS': 'H',
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
 
-prob_len = 5
-thres = 15
+prob_len = 12
+thres = 8
 
 #bins = [0, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
-bins = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-
+bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
 '-------------------------------------------------------------------'
 # Support to build functions
 
@@ -126,104 +125,112 @@ def error_metrics(contacts, pdb_parsed):
     pred_contacts = {}
     pred_zipped = {}
     pred_single = {}
-    ind_dict = {}
+    pred_fins = {}
+
 
     for k, v in pdb_parsed.items():
         if (v < thres):
             actual_pdb[k] = v
-
-    for k, v in contacts.items():
-        if k in actual_pdb.keys():
-            pred_contacts[k] = v
-            
-
-    for k, v in (pred_contacts.items()):
-        pred_zipped[k] =  [i*j for i, j in zip(v, bins)]
     
-    #print (pred_zipped)
-
+    for k, v in (contacts.items()):
+        pred_zipped[k] =  [i*j for i, j in zip(v, bins)]
+ 
     for k, v in pred_zipped.items():
+        temp = (v[:prob_len])
         sum_prob = 0
-        count = 0
-        for n in v:
-            if count <=  prob_len:
-                sum_prob += n
-                count += 1
-            else:
-                break
+        for i in temp:
+            sum_prob += i
+        pred_single[k] = sum_prob
         
-        pred_single[k] = (sum_prob)
-
-    #print (pred_single)
-    #print (actual_pdb)
-
+        
+    for k, v in pred_single.items():
+        if (v < thres):
+            pred_contacts[k] = v
+    
+    for k, v in pred_contacts.items():
+       if k in actual_pdb.keys():
+           pred_fins[k] = v
+    
     abs_error = []
     rel_error = []
 
-    for (k,v), (k1,v1) in zip (pred_single.items(), actual_pdb.items()):
-        abs_error.append(abs(v - v1))
-        rel_error.append((abs(v-v1))/((v+v1)/2)) 
+    for (k,v), (k1,v1) in zip (pred_fins.items(), actual_pdb.items()):
+            abs_error.append(abs(v - v1))
+            rel_error.append((abs(v-v1))/((v+v1)/2)) 
+
+    #print (abs_error)
+    #print (rel_error)
 
     return abs_error, rel_error
 
 # Performance metrics (Precision, Recall, F1)
 def alt_metrics(contacts, pdb_parsed):
     actual_pdb = {}
+    pred_contacts = {}
     pred_zipped = {}
     pred_single = {}
-    pred_single_15 = {}
-    
+    pred_fins = {}
+
+
+
     for k, v in pdb_parsed.items():
         if (v < thres):
             actual_pdb[k] = v
-
+    
     for k, v in (contacts.items()):
         pred_zipped[k] =  [i*j for i, j in zip(v, bins)]
-    
+ 
     for k, v in pred_zipped.items():
+        temp = (v[:prob_len])
         sum_prob = 0
-        count = 0
-        for n in v:
-            if count <=  prob_len:
-                sum_prob += n
-                count += 1
-            else:
-                break
+        for i in temp:
+            sum_prob += i
+        pred_single[k] = sum_prob
         
-        pred_single[k] = (sum_prob)
-
+        
+    for k, v in pred_single.items():
+        if (v < thres):
+            pred_contacts[k] = v
+    
+    for k, v in pred_contacts.items():
+       if k in actual_pdb.keys():
+           pred_fins[k] = v
+    
+   
     prec = []
     rec = []
     f1 = []
-
-    for k, v in pred_single.items():
-        if (v < thres):
-            pred_single_15[k] = v
-
-
-    for k, v in pred_single.items():
-        count_n = 0
-        count_p = 0 
-        if k in (actual_pdb.keys()):
-            count_n += 1
-            if (v < thres):
-                count_p += 1
+    count_n = 0
+    count_p = 0 
+ 
+    for k, v in actual_pdb.items():
+        count_n += 1
+        if k in (pred_contacts.keys()):
+            count_p += 1
 
         if count_n == 0:
             count_n = 1
         prec.append(count_p/count_n)
-        
-    for k, v in pdb_parsed.items():
+
         count_n = 0
-        count_p = 0 
-        if k in (pred_single_15.keys()):
-            count_n += 1
-            if (v < thres):
-                count_p += 1
+        count_p = 0
+    
+    
+    
+    count_n = 0
+    count_p = 0 
+
+    for k, v in pred_contacts.items():
+        count_n += 1
+        if k in (actual_pdb.keys()):
+            count_p += 1
 
         if count_n == 0:
             count_n = 1
         rec.append(count_p/count_n)
+
+        count_n = 0
+        count_p = 0
     
     #f1.append(((2*i*j)/(i+j)) for i, j in zip(prec, rec))
     
@@ -234,8 +241,8 @@ def alt_metrics(contacts, pdb_parsed):
 
 lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
 
-model_name = 'M_12_E100_mae_trained'
-model_n = 'M_12_E100'
+model_name = 'M12_R05_D01_Test_Epochs_mae_trained'
+model_n = 'M12_R05_D01_Test_Epochs'
 
 m = load_model('{}.h5'.format(model_name))
 
@@ -264,7 +271,7 @@ for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
 
     #ppv = []
 
-    for data_file in tqdm.tqdm(glob.glob('//home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmark_set/*.npz'), desc='Protein'):
+    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
 
@@ -283,7 +290,7 @@ for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
         prot_name = data_file.split('/')[-1].split('.')[0]
         length = lengths[prot_name]
         
-        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/testing_sample/benchmarkset/{}/native.pdb'.format(prot_name))
+        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
 
         ab_error, rel_error = error_metrics(contacts_parsed, pdb_parsed)

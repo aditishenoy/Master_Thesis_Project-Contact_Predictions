@@ -19,9 +19,9 @@ from keras.models import Model, load_model
 from keras.utils import to_categorical 
 from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, TensorBoard
 
-no_bins = 12
-#bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
-bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+no_bins = 26
+bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
+#bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 "-------------------------------------------------------------------"
 #Generate dictionary of features and labels from training file 
