@@ -20,7 +20,7 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
 
 prob_len = 12
-thres = 8
+thres = 15
 
 #bins = [0, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
 bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
@@ -154,9 +154,11 @@ def error_metrics(contacts, pdb_parsed):
     abs_error = []
     rel_error = []
 
-    for (k,v), (k1,v1) in zip (pred_fins.items(), actual_pdb.items()):
-            abs_error.append(abs(v - v1))
-            rel_error.append((abs(v-v1))/((v+v1)/2)) 
+    for (k,v) in (pred_contacts.items()):
+        for (k1, v1) in actual_pdb.items():
+            if (k == k1):
+                abs_error.append(abs(v - v1))
+                rel_error.append((abs(v-v1))/((v+v1)/2)) 
 
     #print (abs_error)
     #print (rel_error)
@@ -196,7 +198,6 @@ def alt_metrics(contacts, pdb_parsed):
        if k in actual_pdb.keys():
            pred_fins[k] = v
     
-   
     prec = []
     rec = []
     f1 = []
@@ -231,7 +232,7 @@ def alt_metrics(contacts, pdb_parsed):
 
         count_n = 0
         count_p = 0
-    
+
     #f1.append(((2*i*j)/(i+j)) for i, j in zip(prec, rec))
     
 
@@ -298,7 +299,7 @@ for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
 
         #Save metrics to file
         output = open(out_pm, 'w')
-        print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), (np.mean(prec)*100), (np.mean(recall)*100), file=output, flush=True)
+        print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), (np.mean(prec)), (np.mean(recall)), file=output, flush=True)
         print()
         print()
         output.close()
