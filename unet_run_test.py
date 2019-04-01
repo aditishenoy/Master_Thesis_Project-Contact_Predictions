@@ -19,10 +19,12 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
                 'CYS': 'C', 'THR': 'T', 'SER': 'S', 'MET': 'M', 'TRP': 'W', 'PHE': 'F', 'TYR': 'Y', 'HIS': 'H',
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
 
-prob_len = 12
+prob_len = 5
+prob_length = 12
 thres = 15
 
-#bins = [0, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
+#bins = [2, 5, 7, 9, 11, 13, 15]
+#bins = [2, 4.25, 4.75, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25]
 bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
 '-------------------------------------------------------------------'
 # Support to build functions
@@ -120,37 +122,50 @@ def parse_contact_matrix(data):
 '-------------------------------------------------------------------'
 #Performance metrics (absolute error, relative error)
 
-def error_metrics(contacts, pdb_parsed):
+def error_metrics(contacts, l_threshold, range_, pdb_parsed):
     actual_pdb = {}
     pred_contacts = {}
     pred_zipped = {}
     pred_single = {}
     pred_fins = {}
-
-
+    
     for k, v in pdb_parsed.items():
         if (v < thres):
             actual_pdb[k] = v
     
-    for k, v in (contacts.items()):
-        pred_zipped[k] =  [i*j for i, j in zip(v, bins)]
- 
+    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
+    
+    for (i,j), sc in contacts.items():
+        if low < (j-i) < hi:
+            temp = (sc[:prob_len])
+            sum_prob = 0
+            for k in temp:
+                sum_prob += k
+            pred_single[(i,j)] = sum_prob
+    
+    selected = int(round(l_threshold * max(max(k) for k in pred_single)))
+    sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    contact_list = sorted_x[:selected]
+    #print (contact_list)
+
+    contact_dict = {}
+    contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
+
+    for (i, j), sc in contacts.items():
+        print (sc)
+        if (i, j) in contact_dict.keys():
+            pred_zipped[(i,j)] =  [k*l for k, l in zip(sc, bins)]
+
     for k, v in pred_zipped.items():
-        temp = (v[:prob_len])
+        temp = (v[:prob_length])
         sum_prob = 0
         for i in temp:
             sum_prob += i
-        pred_single[k] = sum_prob
-        
-        
-    for k, v in pred_single.items():
-        if (v < thres):
-            pred_contacts[k] = v
-    
-    for k, v in pred_contacts.items():
-       if k in actual_pdb.keys():
-           pred_fins[k] = v
-    
+        pred_fins[k] = sum_prob
+
+    print (pred_fins)
+    '''
+
     abs_error = []
     rel_error = []
 
@@ -164,7 +179,7 @@ def error_metrics(contacts, pdb_parsed):
     #print (rel_error)
 
     return abs_error, rel_error
-
+'''
 # Performance metrics (Precision, Recall, F1)
 def alt_metrics(contacts, pdb_parsed):
     actual_pdb = {}
@@ -247,22 +262,13 @@ model_n = 'M12_R05_D01_Test_Epochs'
 
 m = load_model('{}.h5'.format(model_name))
 
-'''
-import pickle
-out_pred = 'results_{}'.format(model_name)
-print()
-print(out_pred)
-print()
-output = open(out_pred, 'wb')
-'''
-
 out_pm = 'results_{}'.format(model_name)
 print()
 print(out_pm)
 print()
 output = open(out_pm, 'w')
 
-for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
+for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
 
     weights_path = 'models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
 
@@ -278,25 +284,26 @@ for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
 
         pred = m.predict(data_batch)[0]
         #print (pred)
-        print (pred.shape)       
+        print (pred.shape)
         
-        '''
-        #Save predictions to file
-        output = open(out_pred, 'wb')
-        pickle.dump(pred, output)
-        print()
-        output.close()
-        '''
-
         prot_name = data_file.split('/')[-1].split('.')[0]
         length = lengths[prot_name]
         
         pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
-
-        ab_error, rel_error = error_metrics(contacts_parsed, pdb_parsed)
-        prec, recall = alt_metrics(contacts_parsed, pdb_parsed)
-
+        '''
+        for k, v in pdb_parsed.items():
+            for k1, v1 in contacts_parsed.items():
+                if k == k1:
+                    print (k)
+                    print (v)
+                    print (v1)
+        '''
+        
+        ab_error, rel_error = error_metrics(contacts_parsed, 1, 'all',  pdb_parsed)
+        #prec, recall = alt_metrics(contacts_parsed, pdb_parsed)
+        
+        '''
         #Save metrics to file
         output = open(out_pm, 'w')
         print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), (np.mean(prec)), (np.mean(recall)), file=output, flush=True)
@@ -304,6 +311,7 @@ for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
         print()
         output.close()
 
+        '''
 #os.system('cat results_*')
 
 '-------------------------------------------------------------------'
