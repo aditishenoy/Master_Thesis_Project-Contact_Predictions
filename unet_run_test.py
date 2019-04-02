@@ -19,13 +19,15 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
                 'CYS': 'C', 'THR': 'T', 'SER': 'S', 'MET': 'M', 'TRP': 'W', 'PHE': 'F', 'TYR': 'Y', 'HIS': 'H',
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
 
-prob_len = 5
+prob_len = 4
 prob_length = 12
 thres = 15
 
 #bins = [2, 5, 7, 9, 11, 13, 15]
 #bins = [2, 4.25, 4.75, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25]
 bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
+#bins = [2.5, 5.5, 6.5, 7.5]
+
 '-------------------------------------------------------------------'
 # Support to build functions
 
@@ -137,7 +139,7 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
     
     for (i,j), sc in contacts.items():
         if low < (j-i) < hi:
-            temp = (sc[:prob_len])
+            temp = (sc[:prob_length])
             sum_prob = 0
             for k in temp:
                 sum_prob += k
@@ -145,33 +147,37 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
     
     selected = int(round(l_threshold * max(max(k) for k in pred_single)))
     sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    #print (sorted_x)
     contact_list = sorted_x[:selected]
-    #print (contact_list)
 
     contact_dict = {}
     contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
 
     for (i, j), sc in contacts.items():
-        print (sc)
         if (i, j) in contact_dict.keys():
-            pred_zipped[(i,j)] =  [k*l for k, l in zip(sc, bins)]
+                temp = (sc[:prob_length])
+                pred = [k*l for k, l in zip(temp, bins)]
+                #print (pred)
+                sum_prob = 0
+                for p in pred:
+                    sum_prob += p
 
-    for k, v in pred_zipped.items():
-        temp = (v[:prob_length])
-        sum_prob = 0
-        for i in temp:
-            sum_prob += i
-        pred_fins[k] = sum_prob
+                pred_fins[(i,j)] = sum_prob
+                temp = 0
 
-    print (pred_fins)
-    '''
+    #print (pred_fins)  
 
     abs_error = []
     rel_error = []
 
-    for (k,v) in (pred_contacts.items()):
+    for (k,v) in (pred_fins.items()):
         for (k1, v1) in actual_pdb.items():
             if (k == k1):
+                #print (k)
+                #print (k1)
+                #print (v)
+                #print (v1)
+                
                 abs_error.append(abs(v - v1))
                 rel_error.append((abs(v-v1))/((v+v1)/2)) 
 
@@ -179,39 +185,63 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
     #print (rel_error)
 
     return abs_error, rel_error
-'''
+
+
 # Performance metrics (Precision, Recall, F1)
-def alt_metrics(contacts, pdb_parsed):
+def alt_metrics(contacts, l_threshold, range_, pdb_parsed):
     actual_pdb = {}
     pred_contacts = {}
     pred_zipped = {}
     pred_single = {}
     pred_fins = {}
 
-
-
     for k, v in pdb_parsed.items():
         if (v < thres):
             actual_pdb[k] = v
     
-    for k, v in (contacts.items()):
-        pred_zipped[k] =  [i*j for i, j in zip(v, bins)]
+    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
+    
+    for (i,j), sc in contacts.items():
+        if low < (j-i) < hi:
+            temp = (sc[:prob_length])
+            sum_prob = 0
+            for k in temp:
+                sum_prob += k
+            pred_single[(i,j)] = sum_prob
+    
+    selected = int(round(l_threshold * max(max(k) for k in pred_single)))
+    sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    #print (sorted_x)
+    contact_list = sorted_x[:selected]
+
+    contact_dict = {}
+    contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
+
+    for (i, j), sc in contacts.items():
+        if (i, j) in contact_dict.keys():
+                temp = (sc[:prob_length])
+                pred = [k*l for k, l in zip(temp, bins)]
+                #print (pred)
+                sum_prob = 0
+                for p in pred:
+                    sum_prob += p
+
+                pred_fins[(i,j)] = sum_prob
+                temp = 0
+    
+    pos_counter = 0
+    total_counter = 0
+    for (i,j), sc in contact_dict:
+        if (i, j) in actual_pdb.keys():
+            print (i,j)
+            print (sc)
+            pos_counter += 1
+            total_counter += 1
  
-    for k, v in pred_zipped.items():
-        temp = (v[:prob_len])
-        sum_prob = 0
-        for i in temp:
-            sum_prob += i
-        pred_single[k] = sum_prob
-        
         
     for k, v in pred_single.items():
         if (v < thres):
             pred_contacts[k] = v
-    
-    for k, v in pred_contacts.items():
-       if k in actual_pdb.keys():
-           pred_fins[k] = v
     
     prec = []
     rec = []
@@ -300,8 +330,8 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
                     print (v1)
         '''
         
-        ab_error, rel_error = error_metrics(contacts_parsed, 1, 'all',  pdb_parsed)
-        #prec, recall = alt_metrics(contacts_parsed, pdb_parsed)
+        #ab_error, rel_error = error_metrics(contacts_parsed, 1, 'all',  pdb_parsed)
+        prec, recall = alt_metrics(contacts_parsed, 1, 'all', pdb_parsed)
         
         '''
         #Save metrics to file
