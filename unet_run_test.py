@@ -21,12 +21,12 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
 
 prob_len = 4
 prob_length = 12
-thres = 15
+thres = 8
 
 #bins = [2, 5, 7, 9, 11, 13, 15]
 #bins = [2, 4.25, 4.75, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25]
 bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
-#bins = [2.5, 5.5, 6.5, 7.5]
+#bins_len = [2.5, 5.5, 6.5, 7.5]
 
 '-------------------------------------------------------------------'
 # Support to build functions
@@ -139,11 +139,12 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
     
     for (i,j), sc in contacts.items():
         if low < (j-i) < hi:
-            temp = (sc[:prob_length])
+            temp = (sc[:prob_len])
             sum_prob = 0
             for k in temp:
                 sum_prob += k
             pred_single[(i,j)] = sum_prob
+            temp = 0
     
     selected = int(round(l_threshold * max(max(k) for k in pred_single)))
     sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
@@ -164,31 +165,31 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
 
                 pred_fins[(i,j)] = sum_prob
                 temp = 0
-
+    
     #print (pred_fins)  
-
     abs_error = []
     rel_error = []
 
-    for (k,v) in (pred_fins.items()):
-        for (k1, v1) in actual_pdb.items():
+    for (k, v) in (pred_fins.items()):
+        for (k1, v1) in pdb_parsed.items():
             if (k == k1):
-                #print (k)
-                #print (k1)
-                #print (v)
-                #print (v1)
-                
-                abs_error.append(abs(v - v1))
-                rel_error.append((abs(v-v1))/((v+v1)/2)) 
-
+                print (k)
+                print (k1)
+                print (v)
+                print (v1)
+            return (abs(v - v1)), (abs(v - v1)/((v+v1)/2))
+           #abs_error.append(abs(v - v1))
+                #rel_error.append((abs(v-v1))/((v+v1)/2)) 
+    
     #print (abs_error)
     #print (rel_error)
+    #return (abs(v - v1)), (abs(v - v1)/((v+v1)/2))
 
-    return abs_error, rel_error
+
 
 
 # Performance metrics (Precision, Recall, F1)
-def alt_metrics(contacts, l_threshold, range_, pdb_parsed):
+def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
     actual_pdb = {}
     pred_contacts = {}
     pred_zipped = {}
@@ -198,12 +199,11 @@ def alt_metrics(contacts, l_threshold, range_, pdb_parsed):
     for k, v in pdb_parsed.items():
         if (v < thres):
             actual_pdb[k] = v
-    
+
     low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
-    
     for (i,j), sc in contacts.items():
         if low < (j-i) < hi:
-            temp = (sc[:prob_length])
+            temp = (sc[:prob_len])
             sum_prob = 0
             for k in temp:
                 sum_prob += k
@@ -225,63 +225,85 @@ def alt_metrics(contacts, l_threshold, range_, pdb_parsed):
                 sum_prob = 0
                 for p in pred:
                     sum_prob += p
-
                 pred_fins[(i,j)] = sum_prob
                 temp = 0
     
-    pos_counter = 0
-    total_counter = 0
-    for (i,j), sc in contact_dict:
-        if (i, j) in actual_pdb.keys():
-            print (i,j)
-            print (sc)
-            pos_counter += 1
-            total_counter += 1
- 
-        
-    for k, v in pred_single.items():
+    count = 0
+    tot_count = 0 
+
+    for k, v in pred_fins.items():
         if (v < thres):
             pred_contacts[k] = v
+
+    for (i, j) in pred_contacts.keys():
+        if (i, j) in actual_pdb.keys():
+            count += 1
+        tot_count += 1
+        
+    if tot_count == 0:
+        tot_count = 1
+
+    print (count/tot_count)
+    return (count/tot_count)
+
+
+
+def alt_metrics_r(contacts, l_threshold, range_, pdb_parsed):
+    actual_pdb = {}
+    pred_contacts = {}
+    pred_zipped = {}
+    pred_single = {}
+    pred_fins = {}
+
+    for k, v in pdb_parsed.items():
+        if (v < thres):
+            actual_pdb[k] = v
+
+    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
+    for (i,j), sc in contacts.items():
+        if low < (j-i) < hi:
+            temp = (sc[:prob_len])
+            sum_prob = 0
+            for k in temp:
+                sum_prob += k
+            pred_single[(i,j)] = sum_prob
     
-    prec = []
-    rec = []
-    f1 = []
-    count_n = 0
-    count_p = 0 
- 
-    for k, v in actual_pdb.items():
-        count_n += 1
-        if k in (pred_contacts.keys()):
-            count_p += 1
+    selected = int(round(l_threshold * max(max(k) for k in pred_single)))
+    sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    #print (sorted_x)
+    contact_list = sorted_x[:selected]
 
-        if count_n == 0:
-            count_n = 1
-        prec.append(count_p/count_n)
+    contact_dict = {}
+    contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
 
-        count_n = 0
-        count_p = 0
+    for (i, j), sc in contacts.items():
+        if (i, j) in contact_dict.keys():
+                temp = (sc[:prob_length])
+                pred = [k*l for k, l in zip(temp, bins)]
+                #print (pred)
+                sum_prob = 0
+                for p in pred:
+                    sum_prob += p
+                pred_fins[(i,j)] = sum_prob
+                temp = 0
     
-    
-    
-    count_n = 0
-    count_p = 0 
+    count = 0
+    tot_count = 0 
 
-    for k, v in pred_contacts.items():
-        count_n += 1
-        if k in (actual_pdb.keys()):
-            count_p += 1
+    for k, v in pred_fins.items():
+        if (v < thres):
+            pred_contacts[k] = v
 
-        if count_n == 0:
-            count_n = 1
-        rec.append(count_p/count_n)
+    for (i, j) in actual_pdb.keys():
+        if (i, j) in pred_contacts.keys():
+            count += 1
+        tot_count += 1
+        
+    if tot_count == 0:
+        tot_count = 1
+    print (count/tot_count)
+    return (count/tot_count)
 
-        count_n = 0
-        count_p = 0
-
-    #f1.append(((2*i*j)/(i+j)) for i, j in zip(prec, rec))
-    
-
-    return prec, rec
 
 '-------------------------------------------------------------------'
 
@@ -308,6 +330,11 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
 
     #ppv = []
 
+    abb = []
+    rell = []
+    precc = []
+    rec = []
+
     for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
@@ -321,26 +348,34 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
         
         pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
-        '''
-        for k, v in pdb_parsed.items():
-            for k1, v1 in contacts_parsed.items():
-                if k == k1:
-                    print (k)
-                    print (v)
-                    print (v1)
-        '''
+       
+        ab_error, rel_error = error_metrics(contacts_parsed, 1, 'all',  pdb_parsed)
+        prec = alt_metrics_p(contacts_parsed, 1, 'all', pdb_parsed)
+        recall = alt_metrics_r(contacts_parsed, 1, 'all', pdb_parsed)
         
-        #ab_error, rel_error = error_metrics(contacts_parsed, 1, 'all',  pdb_parsed)
-        prec, recall = alt_metrics(contacts_parsed, 1, 'all', pdb_parsed)
-        
-        '''
+        abb.append(ab_error)
+        rell.append(rel_error)
+        precc.append(prec)
+        rec.append(recall)
         #Save metrics to file
         output = open(out_pm, 'w')
-        print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), (np.mean(prec)), (np.mean(recall)), file=output, flush=True)
+        print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), (np.mean(precc)), (np.mean(rec)), file=output, flush=True)
         print()
         print()
         output.close()
 
+        '''
+        for i in ab_error:
+            if np.isnan(i):
+                continue
+            else:
+                #Save metrics to file
+                output = open(out_pm, 'w')
+                print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), (np.mean(prec)), (np.mean(recall)), file=output, flush=True)
+                print()
+                print()
+                output.close()
+                break
         '''
 #os.system('cat results_*')
 
