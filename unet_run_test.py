@@ -248,7 +248,7 @@ def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
     if tot_count == 0:
         tot_count = 1
 
-    print (count/tot_count)
+    #print (count/tot_count)
     return (count/tot_count)
 
 
@@ -306,7 +306,7 @@ def alt_metrics_r(contacts, l_threshold, range_, pdb_parsed):
         
     if tot_count == 0:
         tot_count = 1
-    print (count/tot_count)
+    #print (count/tot_count)
     return (count/tot_count)
 
 
@@ -319,7 +319,7 @@ model_n = 'M12_R05_D01_Test_Epochs'
 
 m = load_model('{}.h5'.format(model_name))
 
-out_pm = 'results_{}'.format(model_name)
+out_pm = 'results_all_{}'.format(model_name)
 print()
 print(out_pm)
 print()
@@ -339,6 +339,7 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
     rell = []
     precc = []
     rec = []
+    f1_s = []
 
     for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
@@ -357,40 +358,34 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
         ab_error, rel_error = error_metrics(contacts_parsed, 1, 'all',  pdb_parsed)
         prec = alt_metrics_p(contacts_parsed, 1, 'all', pdb_parsed)
         recall = alt_metrics_r(contacts_parsed, 1, 'all', pdb_parsed)
-
+        
         if (ab_error != 0):
             abb.append(ab_error)
         
         if (rel_error != 0):
             rell.append(rel_error)
         
-        #print (abb)
+        if (prec != 0) and (recall != 0):
+            f1 = ((2*prec*recall)/(prec+recall))
+            f1_s.append(f1)
 
+        if (prec != 0):
+            precc.append(prec)
 
-        precc.append(prec)
-        rec.append(recall)
+        if (recall != 0):
+            rec.append(recall)
 
+        #print (precc)
+        #print (rec)
+        #print (f1_s)
 
         #Save metrics to file
         output = open(out_pm, 'w')
-        print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), (np.mean(precc)), (np.mean(rec)), file=output, flush=True)
+        print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), np.mean(precc), np.mean(rec), np.mean(f1_s), file=output, flush=True)
         print()
         print()
         output.close()
 
-        '''
-        for i in ab_error:
-            if np.isnan(i):
-                continue
-            else:
-                #Save metrics to file
-                output = open(out_pm, 'w')
-                print(epoch, np.mean(ab_error), np.median(ab_error), np.mean(rel_error), np.median(rel_error), (np.mean(prec)), (np.mean(recall)), file=output, flush=True)
-                print()
-                print()
-                output.close()
-                break
-        '''
 #os.system('cat results_*')
 
 '-------------------------------------------------------------------'
