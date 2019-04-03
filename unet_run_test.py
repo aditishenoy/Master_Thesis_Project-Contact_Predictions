@@ -176,17 +176,22 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
                 print (k)
                 print (k1)
                 print (v)
-                print (v1)
-            return (abs(v - v1)), (abs(v - v1)/((v+v1)/2))
-           #abs_error.append(abs(v - v1))
-                #rel_error.append((abs(v-v1))/((v+v1)/2)) 
+                print (v1)  
+                #return (abs(v - v1)), (abs(v - v1)/((v+v1)/2))
+                abs_error.append(abs(v - v1))
+                rel_error.append((abs(v-v1))/((v+v1)/2)) 
     
     #print (abs_error)
+    #print (len(abs_error))
     #print (rel_error)
-    #return (abs(v - v1)), (abs(v - v1)/((v+v1)/2))
-
-
-
+    fin = 0
+    fins = 0
+    if (len(abs_error) > 0):
+        fin = np.mean(abs_error)
+    if (len(rel_error) > 0):
+        fins = np.mean(rel_error)
+    
+    return fin, fins
 
 # Performance metrics (Precision, Recall, F1)
 def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
@@ -352,11 +357,20 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
         ab_error, rel_error = error_metrics(contacts_parsed, 1, 'all',  pdb_parsed)
         prec = alt_metrics_p(contacts_parsed, 1, 'all', pdb_parsed)
         recall = alt_metrics_r(contacts_parsed, 1, 'all', pdb_parsed)
+
+        if (ab_error != 0):
+            abb.append(ab_error)
         
-        abb.append(ab_error)
-        rell.append(rel_error)
+        if (rel_error != 0):
+            rell.append(rel_error)
+        
+        #print (abb)
+
+
         precc.append(prec)
         rec.append(recall)
+
+
         #Save metrics to file
         output = open(out_pm, 'w')
         print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), (np.mean(precc)), (np.mean(rec)), file=output, flush=True)
