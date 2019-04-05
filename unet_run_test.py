@@ -109,12 +109,12 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
         #t_parsing += time.time() - t0
        
         #t0 = time.time()
-        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, mode,  pdb_parsed)
+        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
 	#t_compute_error += time.time() - t0
 
         #t0 = time.time()
-        prec = alt_metrics_p(contacts_parsed, threshold_length, mode, pdb_parsed)
-        recall = alt_metrics_r(contacts_parsed, threshold_length, mode, pdb_parsed)
+        prec = alt_metrics_p(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+        recall = alt_metrics_r(contacts_parsed, threshold_length, range_mode, pdb_parsed)
         #t_metrics += time.time() - t0
 
         if (ab_error != 0):
