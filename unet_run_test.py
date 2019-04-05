@@ -53,7 +53,7 @@ else:
 
 assert 0 < threshold_length < 4., 'Invalid threshold_length to contact top contacts'
 
-assert mode in ('short', 'medium', 'long', 'all'), mode
+assert range_mode in ('short', 'medium', 'long', 'all'), range_mode
 
 
 '-------------------------------------------------------------------'
@@ -63,7 +63,7 @@ lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/
 
 m = load_model('{}.h5'.format(model_name))
 
-out_pm = 'results_{}_{}'.format(mode, model_name)
+out_pm = 'results_{}_{}'.format(range_mode, model_name)
 print()
 print(out_pm)
 print()
