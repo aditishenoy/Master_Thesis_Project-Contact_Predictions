@@ -25,7 +25,7 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
 model_name = 'M12_R05_D01_Test_Epochs_mae_trained'
 model_n = 'M12_R05_D01_Test_Epochs'
 
-#Number of bins used for classification (Based on model_name 
+#Number of bins used for classification (Based on model_name)
 n_bins = int(sys.argv[1])
 #Distance threshold to calculate all the other measures (8 or 15)
 thres = int(sys.argv[2])
@@ -57,104 +57,6 @@ assert range_mode in ('short', 'medium', 'long', 'all'), range_mode
 
 
 '-------------------------------------------------------------------'
-#Main part of the program which call associated functions
-
-lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
-
-m = load_model('{}.h5'.format(model_name))
-
-out_pm = 'results_{}_{}'.format(range_mode, model_name)
-print()
-print(out_pm)
-print()
-output = open(out_pm, 'w')
-
-for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
-
-    weights_path = 'models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
-
-    weights = glob.glob(weights_path)[0]
-
-    m.load_weights(weights)
-
-    #ppv = []
-
-    abb = []
-    rell = []
-    precc = []
-    rec = []
-    f1_s = []
-
-    #t_predict = 0.
-    #t_parsing = 0.
-    #t_compute_error = 0.
-    #t_metrics = 0.
-
-    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
-        data_batch = dict(np.load(data_file))
-        data_batch['mask'][:] = 1
-
-        #t0 = time.time()
-        pred = m.predict(data_batch)[0]
-        #t_predict += time.time() - t0
-        #print (pred)
-        print (pred.shape)
-        
-        prot_name = data_file.split('/')[-1].split('.')[0]
-        length = lengths[prot_name]
-        
-        #t0 = time.time()
-        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
-        contacts_parsed = parse_contact_matrix(pred.squeeze())
-        #t_parsing += time.time() - t0
-       
-        #t0 = time.time()
-        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
-	#t_compute_error += time.time() - t0
-
-        #t0 = time.time()
-        prec = alt_metrics_p(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        recall = alt_metrics_r(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        #t_metrics += time.time() - t0
-
-        if (ab_error != 0):
-            abb.append(ab_error)
-        
-        if (rel_error != 0):
-            rell.append(rel_error)
-        
-        if (prec != 0) and (recall != 0):
-            f1 = ((2*prec*recall)/(prec+recall))
-            f1_s.append(f1)
-
-        if (prec != 0):
-            precc.append(prec)
-
-        if (recall != 0):
-            rec.append(recall)
-
-        #print (precc)
-        #print (rec)
-        #print (f1_s)
-
-        #Save metrics to file
-        output = open(out_pm, 'w')
-        print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), np.mean(precc), np.mean(rec), np.mean(f1_s), file=output, flush=True)
-        print()
-        print()
-        output.close()
-
-#print('Time spent on predictions:',    t_predict)
-#print('Time spent computing errors:',    t_compute_error)
-#print('Time spent computing metrics:',    t_metrics )
-#print('Time parsing:', t_parsing)
-
-
-#os.system('cat results_*')
-
-
-'-------------------------------------------------------------------'
-
 # Support to build functions
 
 def _strip(x):
@@ -282,7 +184,7 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
 
     for (i, j), sc in contacts.items():
         if (i, j) in contact_dict.keys():
-                temp = (sc[:prob_length])
+                temp = (sc[:n_bins])
                 pred = [k*l for k, l in zip(temp, bins)]
                 #print (pred)
                 sum_prob = 0
@@ -299,10 +201,10 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
     for (k, v) in (pred_fins.items()):
         for (k1, v1) in pdb_parsed.items():
             if (k == k1):
-                print (k)
-                print (k1)
-                print (v)
-                print (v1)  
+                #print (k)
+                #print (k1)
+                #print (v)
+                #print (v1)  
                 abs_error.append(abs(v - v1))
                 rel_error.append((abs(v-v1))/((v+v1)/2)) 
     fin = 0
@@ -346,7 +248,7 @@ def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
 
     for (i, j), sc in contacts.items():
         if (i, j) in contact_dict.keys():
-                temp = (sc[:prob_length])
+                temp = (sc[:n_bins])
                 pred = [k*l for k, l in zip(temp, bins)]
                 #print (pred)
                 sum_prob = 0
@@ -404,7 +306,7 @@ def alt_metrics_r(contacts, l_threshold, range_, pdb_parsed):
 
     for (i, j), sc in contacts.items():
         if (i, j) in contact_dict.keys():
-                temp = (sc[:prob_length])
+                temp = (sc[:n_bins])
                 pred = [k*l for k, l in zip(temp, bins)]
                 #print (pred)
                 sum_prob = 0
@@ -431,3 +333,102 @@ def alt_metrics_r(contacts, l_threshold, range_, pdb_parsed):
     return (count/tot_count)
 
 '-------------------------------------------------------------------'
+
+#Main part of the program which call associated functions
+
+lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
+
+m = load_model('{}.h5'.format(model_name))
+
+out_pm = 'results_{}_{}'.format(range_mode, model_name)
+print()
+print(out_pm)
+print()
+output = open(out_pm, 'w')
+
+for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
+
+    weights_path = 'models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
+
+    weights = glob.glob(weights_path)[0]
+
+    m.load_weights(weights)
+
+    #ppv = []
+
+    abb = []
+    rell = []
+    precc = []
+    rec = []
+    f1_s = []
+
+    #t_predict = 0.
+    #t_parsing = 0.
+    #t_compute_error = 0.
+    #t_metrics = 0.
+
+    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
+        data_batch = dict(np.load(data_file))
+        data_batch['mask'][:] = 1
+
+        #t0 = time.time()
+        pred = m.predict(data_batch)[0]
+        #t_predict += time.time() - t0
+        #print (pred)
+        print (pred.shape)
+        
+        prot_name = data_file.split('/')[-1].split('.')[0]
+        length = lengths[prot_name]
+        
+        #t0 = time.time()
+        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
+        contacts_parsed = parse_contact_matrix(pred.squeeze())
+        #t_parsing += time.time() - t0
+       
+        #t0 = time.time()
+        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
+	#t_compute_error += time.time() - t0
+
+        #t0 = time.time()
+        prec = alt_metrics_p(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+        recall = alt_metrics_r(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+        #t_metrics += time.time() - t0
+
+        if (ab_error != 0):
+            abb.append(ab_error)
+        
+        if (rel_error != 0):
+            rell.append(rel_error)
+        
+        if (prec != 0) and (recall != 0):
+            f1 = ((2*prec*recall)/(prec+recall))
+            f1_s.append(f1)
+
+        if (prec != 0):
+            precc.append(prec)
+
+        if (recall != 0):
+            rec.append(recall)
+
+        #print (precc)
+        #print (rec)
+        #print (f1_s)
+
+        #Save metrics to file
+        output = open(out_pm, 'w')
+        print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), np.mean(precc), np.mean(rec), np.mean(f1_s), file=output, flush=True)
+        print()
+        print()
+        output.close()
+
+#print('Time spent on predictions:',    t_predict)
+#print('Time spent computing errors:',    t_compute_error)
+#print('Time spent computing metrics:',    t_metrics )
+#print('Time parsing:', t_parsing)
+
+
+#os.system('cat results_*')
+
+'-------------------------------------------------------------------'
+
+
