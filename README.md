@@ -1,4 +1,4 @@
-##Protein Contacts with U-Net++ Architecture
+# Protein Contacts with U-Net++ Architecture
 
 This repository contains the details regarding my master thesis project on optimsation of contact map predictions using U-net++ architecture. 
 
