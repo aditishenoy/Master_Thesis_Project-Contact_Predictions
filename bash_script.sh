@@ -1,0 +1,1 @@
+python3 unetplus_trainREG_model.py Mplus_regDouble12; python3 unetplus_trainREG_model.py Mplus_NoDropout; python3 unetplus_trainREG_model.py Mplus_doReg; python3 unetplus_trainREG_model.py Mplus_Reg15; python3 unetplus_trainREG_model.py Mplus_relu

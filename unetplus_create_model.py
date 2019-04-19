@@ -1,6 +1,6 @@
 #This file contains code where unet++ architecture has been implemented
 #for a regression model using sigmoid distribution for distance output
-# i.e. out_sccore kept as is
+# i.e. out_sccore changed to out_dist measure
 
 from __future__ import division
 
@@ -28,15 +28,17 @@ from keras.layers.advanced_activations import ELU, LeakyReLU
 from keras.layers import Conv2D, Conv1D, MaxPooling2D, UpSampling2D
 from keras.layers.convolutional import Deconv2D as Conv2DTranspose
 
-DROPOUT = 0.5
+DROPOUT = 0.1
 smooth = 1.
-ACTIVATION = "relu"
+ACTIVATION = ELU
 INIT = "he_normal"
 
 #reg_strength = float(sys.argv[2])
-reg_strength = float(10**-4)
+reg_strength = float(10**-12)
 REG = l2(reg_strength)
 
+
+#no_bins = 26
 
 "-------------------------------------------------------------------"
 #Definition of functions needed for u-net architecture
@@ -45,6 +47,45 @@ def self_outer(x):
     outer_x = x[ :, :, None, :] * x[ :, None, :, :]
     return outer_x
 
+
+def add_2D_conv(model, filters, kernel_size, data_format="channels_last", padding="same", 
+        depthwise_initializer=INIT, pointwise_initializer=INIT, depthwise_regularizer=REG, 
+        pointwise_regularizer=REG, separable=True, namesuffix=""):
+
+    if separable:
+        raise ValueError('Separable!')
+    
+    if namesuffix:
+        model = Conv2D(filters, kernel_size, data_format = data_format, padding = padding, 
+                kernel_initializer = depthwise_initializer, kernel_regularizer = depthwise_regularizer, 
+                name = "separable_conv2d_" + namesuffix)(model)
+        model = Dropout(DROPOUT, name="dropout_" + namesuffix)(model)
+        model = ACTIVATION(name="activation_" + namesuffix)(model)
+        model = BatchNormalization(name="batch_normalization_" + namesuffix)(model)
+
+        model = Conv2D(filters, kernel_size, data_format = data_format, padding = padding, 
+                kernel_initializer = depthwise_initializer, kernel_regularizer = depthwise_regularizer, 
+                name = "separable_conv2d_" + namesuffix)(model)
+        model = Dropout(DROPOUT, name="dropout_" + namesuffix)(model)
+        model = ACTIVATION(name="activation_" + namesuffix)(model)
+        model = BatchNormalization(name="batch_normalization_" + namesuffix)(model)
+
+
+
+    else:
+        model = Conv2D(filters, kernel_size, data_format=data_format, padding=padding, kernel_initializer=depthwise_initializer, kernel_regularizer=depthwise_regularizer)(model)
+        model = Dropout(DROPOUT)(model)        
+        model = ACTIVATION()(model)
+        model = BatchNormalization()(model)
+
+        model = Conv2D(filters, kernel_size, data_format=data_format, padding=padding, kernel_initializer=depthwise_initializer, kernel_regularizer=depthwise_regularizer)(model)
+        model = Dropout(DROPOUT)(model)        
+        model = ACTIVATION()(model)
+        model = BatchNormalization()(model)
+
+    return model
+
+'''
 def add_2D_conv(model, filters, kernel_size, data_format="channels_last", padding="same", 
         depthwise_initializer=INIT, pointwise_initializer=INIT, depthwise_regularizer=REG, 
         pointwise_regularizer=REG, separable=True, namesuffix=""):
@@ -72,11 +113,11 @@ def add_2D_conv(model, filters, kernel_size, data_format="channels_last", paddin
         model = Dropout(DROPOUT)(model)
    
     return model
-
+'''
 
 def _add_binary_head(model, dist_cutoff, kernel_size):
     
-    out_binary = Conv2D(1, kernel_size, activation = "sigmoid", 
+    out_binary = Conv2D(1, kernel_size, activation = "relu", 
             data_format = "channels_last", padding = "same", kernel_initializer = INIT, 
             kernel_regularizer = REG, name = "out_binary_%s" % dist_cutoff)(model)
     
@@ -231,7 +272,7 @@ def create_unet_plus(filters=64,
     unet = add_2D_conv(split, filters, 3, separable=False)
     unet = add_2D_conv(unet, filters, 3, separable=False)
 
-    out_sscore = Conv2D(1, 7, activation ="sigmoid", data_format = "channels_last", 
+    out_sscore = Conv2D(1, 7, activation ="relu", data_format = "channels_last", 
             padding = "same", kernel_initializer = INIT, kernel_regularizer = REG, name = "out_sscore")(unet)
             
     print (out_sscore)

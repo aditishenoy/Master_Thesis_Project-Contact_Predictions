@@ -21,41 +21,59 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
                 'CYS': 'C', 'THR': 'T', 'SER': 'S', 'MET': 'M', 'TRP': 'W', 'PHE': 'F', 'TYR': 'Y', 'HIS': 'H',
                 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'MSE': 'M'}
 
+problem = 'REG'
 
+if problem == 'REG':
+    model_name = 'test_model_sscore_mae_trained'
+    model_n = 'test_model_sscore'
+    
+    #The value n which is multiplied with L (Length of protein) to get the top n*L contacts
+    threshold_length = float(sys.argv[1])
+        
+    #What type of protein length is it (short, medium, long, all)
+    range_mode = sys.argv[2]
 
-#Number of bins used for classification (Based on model_name)
-n_bins = int(sys.argv[1])
+    
 
-#Distance threshold to calculate all the other measures (8 or 15)
-thres = int(sys.argv[2])
+elif problem == 'CLASS':
+    #Number of bins used for classification (Based on model_name)
+    n_bins = int(sys.argv[1])
 
-#The value n which is multiplied with L (Length of protein) to get the top n*L contacts
-threshold_length = float(sys.argv[3])
+    #Distance threshold to calculate all the other measures (8 or 15)
+    thres = int(sys.argv[2])
 
-#What type of protein length is it (short, medium, long, all)
-range_mode = sys.argv[4]
+    #The value n which is multiplied with L (Length of protein) to get the top n*L contacts
+    threshold_length = float(sys.argv[3])
 
-if n_bins == 7:
-model_name = 'M07_R05_D01_E50_mae_trained'
-model_n = 'M07_R05_D01_E50'
-bins = [2, 5, 7, 9, 11, 13, 15]
-prob_len = 3
+    #What type of protein length is it (short, medium, long, all)
+    range_mode = sys.argv[4]
 
-elif n_bins == 26:
-model_name = 'M26_R05_D01_E50_mae_trained'
-model_n = 'M26_R05_D01_E50'
-bins = [2, 4.25, 4.75, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25]
-prob_len = 9
+    if n_bins == 7:
+        model_name = 'M07_R05_D01_E50_mae_trained'
+        model_n = 'M07_R05_D01_E50'
+        bins = [2, 5, 7, 9, 11, 13, 15]
+        prob_len = 3
 
-elif n_bins == 12:
-model_name = 'M12_R05_D01_Test_Epochs_mae_trained'
-model_n = 'M12_R05_D01_Test_Epochs'
-bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
-prob_len = 4
+    elif n_bins == 26:
+        model_name = 'M26_R05_D01_E50_mae_trained'
+        model_n = 'M26_R05_D01_E50'
+        bins = [2, 4.25, 4.75, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25]
+        prob_len = 9
 
+    elif n_bins == 12:
+        model_name = 'M12_R05_D01_Test_Epochs_mae_trained'
+        model_n = 'M12_R05_D01_Test_Epochs'
+        bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
+        prob_len = 4
+
+    else:
+
+        raise ValueError('Invalid number of bins (n_bins): {}'.format(n_bins))
+
+    
 else:
 
-raise ValueError('Invalid number of bins (n_bins): {}'.format(n_bins))
+    raise ValueError('Not known kind of problem: {}'.format(problem))
 
 
 assert 0 < threshold_length < 4., 'Invalid threshold_length to contact top contacts'
@@ -202,9 +220,12 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
                 temp = 0
     
     #print (pred_fins)  
-    
     abs_error = []
     rel_error = []
+
+    #print (len(pred_fins))
+    #print (len(pdb_parsed))
+    #print (len(actual_pdb))
 
     for (k, v) in (pred_fins.items()):
         for (k1, v1) in pdb_parsed.items():
@@ -248,7 +269,6 @@ def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
     
     selected = int(round(l_threshold * max(max(k) for k in pred_single)))
     sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
-    #print (sorted_x)
     contact_list = sorted_x[:selected]
 
     contact_dict = {}
@@ -271,12 +291,6 @@ def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
     for k, v in pred_fins.items():
         if (v < thres):
             pred_contacts[k] = v
-            
-    print (len(pred_fins))
-    print (len(pred_contacts))
-    print (len(actual_pdb))
-    print (len(pdb_parsed))
-
 
     for (i, j) in pred_contacts.keys():
         if (i, j) in actual_pdb.keys():
@@ -286,7 +300,6 @@ def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
     if tot_count == 0:
         tot_count = 1
 
-    #print (count/tot_count)
     return (count/tot_count)
 
 # Performance metrics (Recall)
@@ -343,9 +356,33 @@ def alt_metrics_r(contacts, l_threshold, range_, pdb_parsed):
         
     if tot_count == 0:
         tot_count = 1
-    #print (count/tot_count)
+
     return (count/tot_count)
 
+def compute_ppv(contacts, l_threshold, range_, pdb_parsed):
+
+    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
+    contact_list = [(i, j, sc) for (i, j), sc in contacts.items() if low < j - i <= hi]
+    contact_list.sort(key=lambda x: x[2], reverse=True)
+    selected = int(round(l_threshold * max(max(k) for k in contacts)))
+    contact_list = contact_list[:selected]
+    
+    print (contacts)
+    print (pdb_parsed)
+
+    pos_counter = 0
+    total_counter = 0
+    for i, j, _ in contact_list:
+        if (i, j) in pdb_parsed:
+            if pdb_parsed[(i, j)]:
+                pos_counter += 1
+            total_counter += 1
+
+    if total_counter == 0:
+        total_counter = 1
+        
+    return pos_counter / total_counter
+    
 '-------------------------------------------------------------------'
 
 #Main part of the program which call associated functions
@@ -360,7 +397,7 @@ print(out_pm)
 print()
 output = open(out_pm, 'w')
 
-for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
+for epoch in tqdm.trange(1, 100, desc = 'Epoch'):
 
     weights_path = 'models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
 
@@ -368,7 +405,7 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
 
     m.load_weights(weights)
 
-    #ppv = []
+    ppv = []
 
     abb = []
     rell = []
@@ -376,75 +413,58 @@ for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
     rec = []
     f1_s = []
 
-    #t_predict = 0.
-    #t_parsing = 0.
-    #t_compute_error = 0.
-    #t_metrics = 0.
-
     for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
 
-        #t0 = time.time()
         pred = m.predict(data_batch)[0]
-        #t_predict += time.time() - t0
-        #print (pred)
         print (pred.shape)
         
         prot_name = data_file.split('/')[-1].split('.')[0]
         length = lengths[prot_name]
 
-        print (prot_name)
-        
-        #t0 = time.time()
         pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
-        #t_parsing += time.time() - t0
-       
-        #t0 = time.time()
-        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
-	#t_compute_error += time.time() - t0
-
-        #t0 = time.time()
-        prec = alt_metrics_p(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        recall = alt_metrics_r(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        #t_metrics += time.time() - t0
-
-        if (ab_error != 0):
-            abb.append(ab_error)
         
-        if (rel_error != 0):
-            rell.append(rel_error)
+        if problem == 'CLASS':
+            ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
+            prec = alt_metrics_p(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+            recall = alt_metrics_r(contacts_parsed, threshold_length, range_mode, pdb_parsed)
         
-        if (prec != 0) and (recall != 0):
-            f1 = ((2*prec*recall)/(prec+recall))
-            f1_s.append(f1)
+            if (ab_error != 0):
+                abb.append(ab_error)
+        
+            if (rel_error != 0):
+                rell.append(rel_error)
+        
+            if (prec != 0) and (recall != 0):
+                f1 = ((2*prec*recall)/(prec+recall))
+                f1_s.append(f1)
 
-        if (prec != 0):
-            precc.append(prec)
+            if (prec != 0):
+                precc.append(prec)
 
-        if (recall != 0):
-            rec.append(recall)
+            if (recall != 0):
+                rec.append(recall)
+                
+                
+            #Save metrics to file
+            output = open(out_pm, 'w')
+            print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), np.mean(precc), np.mean(rec), np.mean(f1_s), file=output, flush=True)
+            print()
+            print()
+            output.close()
+            
+        elif problem == 'REG':
+            this_ppv = compute_ppv(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+            ppv.append(this_ppv)
 
-        #print (precc)
-        #print (rec)
-        #print (f1_s)
-
-        #Save metrics to file
-        output = open(out_pm, 'w')
-        print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), np.mean(precc), np.mean(rec), np.mean(f1_s), file=output, flush=True)
-        print()
-        print()
-        output.close()
-
-#print('Time spent on predictions:',    t_predict)
-#print('Time spent computing errors:',    t_compute_error)
-#print('Time spent computing metrics:',    t_metrics )
-#print('Time parsing:', t_parsing)
-
-
-#os.system('cat results_*')
-
-'-------------------------------------------------------------------'
-
-
+            #Save metrics to file
+            output = open(out_pm, 'w')
+            print (epoch, np.mean(ppv), np.median(ppv), file=output, flush=True)
+            print()
+            print()
+            output.close()
+            
+            
+            
