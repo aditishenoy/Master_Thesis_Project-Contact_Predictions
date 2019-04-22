@@ -5,7 +5,11 @@
 import os
 import glob
 import functools
+import os
+import sys
 
+import time
+import functools
 from keras.models import load_model
 import numpy as np
 from Bio import pairwise2
@@ -14,6 +18,26 @@ import pylab as plt
 
 import tqdm
 
+n_bins = int(sys.argv[1])
+
+if n_bins == 1:
+    model_name = 'model12_mae_trained'
+    model_n = 'model12'
+
+elif n_bins == 2:
+    model_name = 'Mplus_AltRegDouble12_mae_trained'
+    model_n = 'Mplus_AltRegDouble12'
+
+range_mode = sys.argv[2]
+
+threshold_length = 1
+
+
+assert 0 < threshold_length < 4., 'Invalid threshold_length to contact top contacts'
+
+assert range_mode in ('short', 'medium', 'long', 'all'), range_mode
+
+'-------------------------------------------------------------------'
 
 def _strip(x):
     return len(x[1].strip('-'))
@@ -151,10 +175,8 @@ def to_image(cmap, N):
 
 lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
 
-model_name = 'Mplus_AltRegDouble12_mae_trained'
-model_n = 'Mplus_AltRegDouble12'
 m = load_model('{}.h5'.format(model_name))
-out_f = 'regression/results/results_2_{}.log'.format(model_name)
+out_f = 'results_friday/results_{}_{}'.format(range_mode, model_name)
 
 print()
 print(out_f)
@@ -183,11 +205,11 @@ for epoch in tqdm.trange(1, 100, desc='Epoch'):
 		pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
 			
 		contacts_parsed = parse_contact_matrix(pred.squeeze())
-		this_ppv = compute_ppv(contacts_parsed, 2, 'all', pdb_parsed)
+		this_ppv = compute_ppv(contacts_parsed, threshold_length, range_mode, pdb_parsed)
 		ppv.append(this_ppv)
-
 		output = open(out_f, 'w')
-		print(epoch, np.mean(ppv), np.median(ppv), file=output, flush=True)
+		#print(epoch, np.mean(ppv), np.median(ppv), file=output, flush=True)
+		print(epoch, np.mean(ppv), file=output, flush=True)
 	
 		print()
 		print()
