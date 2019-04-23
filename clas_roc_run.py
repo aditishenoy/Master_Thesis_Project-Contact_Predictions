@@ -1,6 +1,5 @@
 # Classification script
-# Results for Sensitivity, Specificity
-# TPR/FPR/ROC/AUC Calculation
+# Calculates Precision, Recall (TPR), F1 Score, Specificity, FPR
 
 '-------------------------------------------------------------------'
 from __future__ import division
@@ -31,31 +30,40 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
 n_bins = int(sys.argv[1])
 
 #Distance threshold to calculate all the other measures (8 or 15)
-thres = 8
+thres = int(sys.argv[2])
 
 #The value n which is multiplied with L (Length of protein) to get the top n*L contacts
 threshold_length = 1
 
 #What type of protein length is it (short, medium, long, all)
-range_mode = sys.argv[2]
+range_mode = sys.argv[3]
 
 if n_bins == 7:
     model_name = 'M07_R05_D01_E50_mae_trained'
     model_n = 'M07_R05_D01_E50'
     bins = [2, 5, 7, 9, 11, 13, 15]
-    prob_len = 3
+    if thres == 8:
+        prob_len = 3
+    elif thres == 15:
+        prob_len = 6
 
 elif n_bins == 26:
     model_name = 'M26_R05_D01_E50_mae_trained'
     model_n = 'M26_R05_D01_E50'
     bins = [2, 4.25, 4.75, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25]
-    prob_len = 9
+    if thres == 8:
+        prob_len = 9
+    elif thres == 15:
+        prob_len = 25
 
 elif n_bins == 12:
     model_name = 'M12_R05_D01_Test_Epochs_mae_trained'
     model_n = 'M12_R05_D01_Test_Epochs'
     bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
-    prob_len = 4
+    if thres == 8:
+        prob_len = 4
+    elif thres == 15:
+        prob_len = 11
 
 else:
     raise ValueError('Invalid number of bins (n_bins): {}'.format(n_bins))
@@ -147,7 +155,7 @@ def parse_pdb(pdb):
     for i in ca:
         for j in ca:
             if abs(i - j) > 5 and j > i:
-                cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j])
+                cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j]) < thres
     return cmap
 
 def parse_contact_matrix(data):
@@ -222,15 +230,8 @@ def error_metrics(contacts, l_threshold, range_, pdb_parsed):
 
 # Performance metrics (Precision)
 def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
-    actual_pdb = {}
-    pred_contacts = {}
-    pred_zipped = {}
-    pred_single = {}
-    pred_fins = {}
 
-    for k, v in pdb_parsed.items():
-        if (v < thres):
-            actual_pdb[k] = v
+    pred_single = {}
 
     low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
     for (i,j), sc in contacts.items():
@@ -240,51 +241,28 @@ def alt_metrics_p(contacts, l_threshold, range_, pdb_parsed):
             for k in temp:
                 sum_prob += k
             pred_single[(i,j)] = sum_prob
-    
-    selected = int(round(l_threshold * max(max(k) for k in pred_single)))
+
     sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    selected = int(round(l_threshold * max(max(k) for k in contacts)))
     contact_list = sorted_x[:selected]
-    contact_dict = {}
-    contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
-
-    for (i, j), sc in contacts.items():
-        if (i, j) in contact_dict.keys():
-                temp = (sc[:n_bins])
-                pred = [k*l for k, l in zip(temp, bins)]
-                sum_prob = 0
-                for p in pred:
-                    sum_prob += p
-                pred_fins[(i,j)] = sum_prob
-                temp = 0
     
-    count = 0
-    tot_count = 0 
+    pos_counter = 0
+    total_counter = 0
+    for (i, j), _ in contact_list:
+        if (i, j) in pdb_parsed:
+            if pdb_parsed[(i, j)]:
+                pos_counter += 1
+            total_counter += 1
 
-    for k, v in pred_fins.items():
-        if (v < thres):
-            pred_contacts[k] = v
-            
-    for (i, j) in pred_contacts.keys():
-        if (i, j) in actual_pdb.keys():
-            count += 1
-        tot_count += 1
-        
-    if tot_count == 0:
-        tot_count = 1
+    if total_counter == 0:
+        total_counter = 1
+    return pos_counter / total_counter
 
-    return (count/tot_count)
 
-# Performance metrics (Recall, Specificity, True Positive Rate (TPR))
+# Performance metrics (Recall/Sensitivity/True Positive Rate (TPR))
 def tpr_calc(contacts, l_threshold, range_, pdb_parsed):
-    actual_pdb = {}
-    pred_contacts = {}
-    pred_zipped = {}
-    pred_single = {}
-    pred_fins = {}
 
-    for k, v in pdb_parsed.items():
-        if (v < thres):
-            actual_pdb[k] = v
+    pred_single = {}
 
     low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
     for (i,j), sc in contacts.items():
@@ -294,51 +272,32 @@ def tpr_calc(contacts, l_threshold, range_, pdb_parsed):
             for k in temp:
                 sum_prob += k
             pred_single[(i,j)] = sum_prob
-    
-    selected = int(round(l_threshold * max(max(k) for k in pred_single)))
+
     sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    selected = int(round(l_threshold * max(max(k) for k in contacts)))
     contact_list = sorted_x[:selected]
 
     contact_dict = {}
-    contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
-
-    for (i, j), sc in contacts.items():
-        if (i, j) in contact_dict.keys():
-                temp = (sc[:n_bins])
-                pred = [k*l for k, l in zip(temp, bins)]
-                sum_prob = 0
-                for p in pred:
-                    sum_prob += p
-                pred_fins[(i,j)] = sum_prob
-                temp = 0
+    contact_dict =  dict(((i,j), y) for (i, j), y in contact_list)
     
     count = 0
     tot_count = 0 
 
-    for k, v in pred_fins.items():
-        if (v < thres):
-            pred_contacts[k] = v
-
-    for (i, j) in actual_pdb.keys():
-        if (i, j) in pred_contacts.keys():
-            count += 1
-        tot_count += 1
+    for (i, j) in pdb_parsed.keys():
+        if pdb_parsed[(i,j)]:
+            if (i, j) in contact_dict.keys():
+                count += 1
+            tot_count += 1
         
     if tot_count == 0:
         tot_count = 1
     
     return (count/tot_count)
+
 
 def fpr_calc(contacts, l_threshold, range_, pdb_parsed):
-    actual_pdb = {}
-    pred_contacts = {}
-    pred_zipped = {}
-    pred_single = {}
-    pred_fins = {}
 
-    for k, v in pdb_parsed.items():
-        if (v > thres):
-            actual_pdb[k] = v
+    pred_single = {}
 
     low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
     for (i,j), sc in contacts.items():
@@ -348,40 +307,27 @@ def fpr_calc(contacts, l_threshold, range_, pdb_parsed):
             for k in temp:
                 sum_prob += k
             pred_single[(i,j)] = sum_prob
-    
-    selected = int(round(l_threshold * max(max(k) for k in pred_single)))
+
     sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    selected = int(round(l_threshold * max(max(k) for k in contacts)))
     contact_list = sorted_x[:selected]
-
+    
     contact_dict = {}
-    contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
-
-    for (i, j), sc in contacts.items():
-        if (i, j) in contact_dict.keys():
-                temp = (sc[:n_bins])
-                pred = [k*l for k, l in zip(temp, bins)]
-                sum_prob = 0
-                for p in pred:
-                    sum_prob += p
-                pred_fins[(i,j)] = sum_prob
-                temp = 0
+    contact_dict =  dict(((i,j), y) for (i, j), y in contact_list)
     
     count = 0
     tot_count = 0 
 
-    for k, v in pred_fins.items():
-        if (v > thres):
-            pred_contacts[k] = v
-
-    for (i, j) in actual_pdb.keys():
-        if (i, j) in pred_contacts.keys():
-            count += 1
-        tot_count += 1
+    for (i, j) in pdb_parsed.keys():
+        if (pdb_parsed[(i,j)] == False):
+            if (i, j) in contact_dict.keys():
+                count += 1
+            tot_count += 1
         
     if tot_count == 0:
         tot_count = 1
     
-    return (1-(count/tot_count))
+    return (count/tot_count)
 
 
 '-------------------------------------------------------------------'
@@ -392,71 +338,62 @@ lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/
 
 m = load_model('{}.h5'.format(model_name))
 
-out_pm = 'results_monday22/results_{}_{}'.format(range_mode, model_name)
+out_pm = 'results_tuesday23/results_{}_{}_{}'.format(thres, range_mode, model_name)
 print()
 print(out_pm)
 print()
 output = open(out_pm, 'w')
 
-#for epoch in tqdm.trange(1, 51, desc = 'Epoch'):
-epoch =22
+for epoch in tqdm.trange(1, 100, desc='Epoch'):
+    weights_path = 'classification/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
+    weights = glob.glob(weights_path)[0]	
+    m.load_weights(weights)
 
-weights_path = 'classification/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
+    abb = []
+    rell = []
 
-weights = glob.glob(weights_path)[0]
+    ppv = []
+    rec = []
+    f1_s = []
 
-m.load_weights(weights)
-ppv = []
-abb = []
-rell = []
-precc = []
-f1_s = []
-
-for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
-        rec = []
-        fpr = []
+    spe = []
+    fpr = []
+        
+    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
         pred = m.predict(data_batch)[0]
         prot_name = data_file.split('/')[-1].split('.')[0]
         length = lengths[prot_name]
+
         pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
-        #ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
-        #prec = alt_metrics_p(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        
-        recall = tpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        fp_rate = fpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        '''
+        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
+
         if (ab_error != 0):
             abb.append(ab_error)
         
         if (rel_error != 0):
             rell.append(rel_error)
-        
+
+        prec = alt_metrics_p(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+        recall = tpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+        ppv.append(prec)
+        rec.append(recall)
+
         if (prec != 0) and (recall != 0):
             f1 = ((2*prec*recall)/(prec+recall))
             f1_s.append(f1)
 
-        if (prec != 0):
-            precc.append(prec)
-        '''
-
-        #if (recall != 0):
-        rec.append(recall)
-            
-        #if (fp_rate != 0):
-        fpr.append(fp_rate)
-            
-        print (rec)
-        print ('***')
-        print (fpr)
-
+        fp_rate = fpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+        spe.append(fp_rate)
+        fpr.append(1-fp_rate)
 
         #Save metrics to file
-        output = open(out_pm, 'a')
-        #print(epoch, np.mean(abb), np.median(abb), np.mean(rell), np.median(rell), np.mean(precc), np.mean(rec), np.mean(f1_s), file=output, flush=True)
-        print(epoch, np.mean(rec), np.mean(fpr), file=output, flush=True)
+        output = open(out_pm, 'w')
+        print(epoch, np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), np.mean(abb), np.mean(rell), file=output, flush=True)
         print()
         print()
         output.close()
+
+
