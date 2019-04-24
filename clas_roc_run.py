@@ -30,40 +30,31 @@ three_to_one = {'ASP': 'D', 'GLU': 'E', 'ASN': 'N', 'GLN': 'Q', 'ARG': 'R', 'LYS
 n_bins = int(sys.argv[1])
 
 #Distance threshold to calculate all the other measures (8 or 15)
-thres = int(sys.argv[2])
+thres = 8
 
 #The value n which is multiplied with L (Length of protein) to get the top n*L contacts
 threshold_length = 1
 
 #What type of protein length is it (short, medium, long, all)
-range_mode = sys.argv[3]
+range_mode = sys.argv[2]
 
 if n_bins == 7:
     model_name = 'M07_R05_D01_E50_mae_trained'
     model_n = 'M07_R05_D01_E50'
     bins = [2, 5, 7, 9, 11, 13, 15]
-    if thres == 8:
-        prob_len = 3
-    elif thres == 15:
-        prob_len = 6
+    prob_len = 3
 
 elif n_bins == 26:
     model_name = 'M26_R05_D01_E50_mae_trained'
     model_n = 'M26_R05_D01_E50'
     bins = [2, 4.25, 4.75, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75, 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25]
-    if thres == 8:
-        prob_len = 9
-    elif thres == 15:
-        prob_len = 25
+    prob_len = 9
 
 elif n_bins == 12:
     model_name = 'M12_R05_D01_Test_Epochs_mae_trained'
     model_n = 'M12_R05_D01_Test_Epochs'
     bins = [2.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5]
-    if thres == 8:
-        prob_len = 4
-    elif thres == 15:
-        prob_len = 11
+    prob_len = 4
 
 else:
     raise ValueError('Invalid number of bins (n_bins): {}'.format(n_bins))
@@ -156,6 +147,74 @@ def parse_pdb(pdb):
         for j in ca:
             if abs(i - j) > 5 and j > i:
                 cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j]) < thres
+    return cmap
+
+
+@functools.lru_cache(maxsize=512)
+def parse_pdb_1(pdb):
+    ca = dict()
+    cb = dict()
+
+    this_chain = pdb.split('/')[-2][-1]
+    fa = pdb.replace('native.pdb', 'sequence.fa')
+    seq = ''.join(line.strip() for line in open(fa) if not line.startswith('>'))
+    pdb_seq = dict()
+    pdb_numbers = []
+    for line in open(pdb):
+        if line.startswith('ATOM'):
+            type_ = line[13:15]
+            chain = line[21:22]
+            if type_ == 'CA' and chain == this_chain:
+                resi = int(line[22:26])
+                if resi not in pdb_seq:
+                    pdb_seq[resi] = three_to_one[line[17:20]]
+                    pdb_numbers.append(resi)
+
+    pdb_seq_merged = ''.join(pdb_seq[k] for k in sorted(pdb_seq))
+
+    aligned = pairwise2.align.globalmd(seq, pdb_seq_merged, 5, -1, -5, -3, -0.5, -0.1)
+    if len(aligned) == 0:
+        aligned = pairwise2.align.globalmd(seq, pdb_seq_merged, 5, -1, -3, -3, -0.5, -0.1)
+        if len(aligned) == 0:
+            aligned = pairwise2.align.localmd(seq, pdb_seq_merged, 10, -1, -3, -3, -0.5, -0.1)
+
+    aligned = pick_best_alignment(aligned, seq)
+
+    res_mapping = dict()
+    j = 0
+    for i, aa in enumerate(aligned[1]):
+        if aa != '-':
+            skipped = aligned[0][:j].count('-')  # Count for gaps in the sequence
+            pdb_number = pdb_numbers[j]
+            res_mapping[pdb_number] = i + 1 - skipped
+            j += 1
+
+    for line in open(pdb):
+        if not line.startswith('ATOM'):
+            continue
+        type_ = line[13:15]
+        chain = line[21:22]
+        if type_ not in ('CA', 'CB') or chain != this_chain:
+            continue
+        resi = res_mapping[int(line[22:26])]
+        x = float(line[30:38])
+        y = float(line[38:46])
+        z = float(line[46:54])
+        coord = np.array([x, y, z], dtype=np.float32)
+
+        if type_ == 'CA':
+            ca[resi] = coord
+        else:
+            cb[resi] = coord
+
+    # Overwrite CB
+    ca.update(cb)
+
+    cmap = dict()
+    for i in ca:
+        for j in ca:
+            if abs(i - j) > 5 and j > i:
+                cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j])
     return cmap
 
 def parse_contact_matrix(data):
@@ -319,7 +378,7 @@ def fpr_calc(contacts, l_threshold, range_, pdb_parsed):
     tot_count = 0 
 
     for (i, j) in pdb_parsed.keys():
-        if (pdb_parsed[(i,j)] == False):
+        if not (pdb_parsed[(i,j)]):
             if (i, j) in contact_dict.keys():
                 count += 1
             tot_count += 1
@@ -338,17 +397,18 @@ lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/
 
 m = load_model('{}.h5'.format(model_name))
 
-out_pm = 'results_tuesday23/results_{}_{}_{}'.format(thres, range_mode, model_name)
+out_pm = 'results_wednesday24/results_{}_{}_{}'.format(thres, range_mode, model_name)
 print()
 print(out_pm)
 print()
 output = open(out_pm, 'w')
 
+
+
 for epoch in tqdm.trange(1, 100, desc='Epoch'):
     weights_path = 'classification/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
     weights = glob.glob(weights_path)[0]	
     m.load_weights(weights)
-
     abb = []
     rell = []
 
@@ -358,7 +418,7 @@ for epoch in tqdm.trange(1, 100, desc='Epoch'):
 
     spe = []
     fpr = []
-        
+
     for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
@@ -366,9 +426,10 @@ for epoch in tqdm.trange(1, 100, desc='Epoch'):
         prot_name = data_file.split('/')[-1].split('.')[0]
         length = lengths[prot_name]
 
+        pdb_parsed_1 = parse_pdb_1('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
-        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed)
+        ab_error, rel_error = error_metrics(contacts_parsed, threshold_length, range_mode,  pdb_parsed_1)
 
         if (ab_error != 0):
             abb.append(ab_error)
@@ -388,12 +449,9 @@ for epoch in tqdm.trange(1, 100, desc='Epoch'):
         fp_rate = fpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
         spe.append(fp_rate)
         fpr.append(1-fp_rate)
-
-        #Save metrics to file
-        output = open(out_pm, 'w')
-        print(epoch, np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), np.mean(abb), np.mean(rell), file=output, flush=True)
-        print()
-        print()
-        output.close()
-
-
+    #Save metrics to file
+    output = open(out_pm, 'a')
+    print(epoch, np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), np.mean(abb), np.mean(rell), file=output, flush=True)
+    print()
+    print()
+    output.close()

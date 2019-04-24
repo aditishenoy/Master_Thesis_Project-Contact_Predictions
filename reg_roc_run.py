@@ -30,9 +30,9 @@ elif n_bins == 2:
 
 
 #Distance threshold to calculate all the other measures (8 or 15)
-thres = int(sys.argv[2])
+thres = 8
 
-range_mode = sys.argv[3]
+range_mode = sys.argv[2]
 
 #The value n which is multiplied with L (Length of protein) to get the top n*L contacts
 threshold_length = 1
@@ -101,7 +101,7 @@ def parse_pdb(pdb):
     j = 0
     for i, aa in enumerate(aligned[1]):
         if aa != '-':
-            skipped = aligned[0][:j].count('-')  # Count for gaps in the sequence
+            skipped = aligned[0][:j].count('-')
             pdb_number = pdb_numbers[j]
             res_mapping[pdb_number] = i + 1 - skipped
             j += 1
@@ -200,7 +200,7 @@ def fpr_calc(contacts, l_threshold, range_, pdb_parsed):
     tot_count = 0 
 
     for (i, j) in pdb_parsed.keys():
-        if (pdb_parsed[(i,j)] == False):
+        if not (pdb_parsed[(i,j)]):
             if (i, j) in contact_dict.keys():
                 count += 1
             tot_count += 1
@@ -234,15 +234,17 @@ lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/
 
 m = load_model('{}.h5'.format(model_name))
 
-out_pm = 'results_tuesday23/results_{}_{}_{}'.format(thres, range_mode, model_name)
+
+out_pm = 'results_wednesday24/results_{}_{}_{}'.format(thres, range_mode, model_name)
 print()
 print(out_pm)
 print()
 output = open(out_pm, 'w')
 
-for epoch in tqdm.trange(1, 100, desc='Epoch'):
+
+
+for epoch in tqdm.trange(1, 101, desc='Epoch'):
     weights_path = 'regression/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
-    #print (weights_path)
     weights = glob.glob(weights_path)[0]	
     m.load_weights(weights)
 
@@ -250,9 +252,10 @@ for epoch in tqdm.trange(1, 100, desc='Epoch'):
     rec = []
     f1_s = []
 
+
     spe = []
     fpr = []
-        
+
     for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
         data_batch = dict(np.load(data_file))
         data_batch['mask'][:] = 1
@@ -262,7 +265,7 @@ for epoch in tqdm.trange(1, 100, desc='Epoch'):
         length = lengths[prot_name]
         pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
         contacts_parsed = parse_contact_matrix(pred.squeeze())
-
+        
         this_ppv = compute_ppv(contacts_parsed, threshold_length, range_mode, pdb_parsed)
         recall = tpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
         fp_rate = fpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
@@ -276,11 +279,11 @@ for epoch in tqdm.trange(1, 100, desc='Epoch'):
         spe.append(fp_rate)
         fpr.append(1-fp_rate)
 
-        #Save metrics to file
-        output = open(out_pm, 'w')
-        print(epoch, np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), file=output, flush=True)
-        print()
-        print()
-        output.close()
+    #Save metrics to file
+    output = open(out_pm, 'a')
+    print(epoch, np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), file=output, flush=True)
+    print()
+    print()
+    output.close()
 
 '-------------------------------------------------------------------'
