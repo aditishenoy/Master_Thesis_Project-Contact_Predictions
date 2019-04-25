@@ -9,6 +9,8 @@ from Bio import pairwise2
 
 import pylab as plt
 
+from matplotlib import pyplot as plt
+plt.rcParams['agg.path.chunksize'] = 10000
 import tqdm
 
 #Number of bins used for classification (Based on model_name)
@@ -26,20 +28,7 @@ threshold_length = 1
 #range_mode = sys.argv[2]
 range_mode = 'all'
 
-
-if n_bins == 1:
-    model_name = 'model12_mae_trained'
-    model_n = 'model12'
-    selected_epoch = 14
-
-
-elif n_bins == 2:
-    model_name = 'Mplus_AltRegDouble12_mae_trained'
-    model_n = 'Mplus_AltRegDouble12'
-    selected_epoch = 75
-
-
-elif n_bins == 7:
+if n_bins == 7:
     model_name = 'M07_R05_D01_E50_mae_trained'
     model_n = 'M07_R05_D01_E50'
     bins = [2, 5, 7, 9, 11, 13, 15]
@@ -69,13 +58,10 @@ assert 0 < threshold_length < 4., 'Invalid threshold_length to contact top conta
 
 assert range_mode in ('short', 'medium', 'long', 'all'), range_mode
 
+
+
 m = load_model('{}.h5'.format(model_name))
-
-if (n_bins ==1) or (n_bins == 2):
-    weights_path = 'regression/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, selected_epoch)
-else:
-    weights_path = 'classification/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, selected_epoch)
-
+weights_path = 'classification/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, selected_epoch)
 weights = glob.glob(weights_path)[0]
 m.load_weights(weights)
 
@@ -186,12 +172,7 @@ def pred_dist(contacts, l_threshold, range_, pdb_parsed):
     pred_single = {}
     pred_fins = {}
 
-    if (n_bins == 1) or (n_bins == 2):
-        for (i,j), sc in contacts.items():
-            if (sc > 0.5):
-                pred_fins[(i,j)] = (sc * thres)
-    else: 
-        for (i, j), sc in contacts.items():
+    for (i, j), sc in contacts.items():
             temp = (sc[:n_bins])
             pred = [k*l for k, l in zip(temp, bins)]
             sum_prob = 0
@@ -208,6 +189,14 @@ lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/
 actual_pdb = {}
 act_dist_list = []
 pred_dist_list = []
+
+
+out_pm = 'images/pred_act_residues_values_{}'.format(model_name)
+print()
+print(out_pm)
+print()
+output = open(out_pm, 'w')
+
 
 for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
     data_batch = dict(np.load(data_file))
@@ -232,12 +221,25 @@ for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc
     
     for (i, j), sc in actual_pdb.items():
         if (i, j) in contacts_parsed.keys():
-            print (i,j)
-            print (sc)
-            print (pred_parsed[(i,j)])
-            act_dist_list.append(sc)
-            pred_dist_list.append(pred_parsed[(i,j)])
+            #print (i,j)
+            #print (sc)
+            #print (pred_parsed[(i,j)])
+            #act_dist_list.append(sc)
+            #pred_dist_list.append(pred_parsed[(i,j)])
+            output = open(out_pm, 'a')
+            print(sc, pred_parsed[(i,j)], file=output, flush=True)
+            print()
+            print()
+            output.close()
 
-    #print (act_dist_list)
-    #print (pred_dist_list)
 
+#print (act_dist_list)
+#print (pred_dist_list)
+
+#fig1 = plt.figure()
+#plt.plot(act_dist_list, pred_dist_list, color='b', ls='-', alpha=1)
+#fig1.suptitle('Predicted Distance Vs Actual Distance')
+#plt.xlabel('Actual Distance')
+#plt.ylabel('Predicted Distance')
+#plt.savefig('images/Pred_Act_Distance_{}'.format(model_name))
+#plt.show()
