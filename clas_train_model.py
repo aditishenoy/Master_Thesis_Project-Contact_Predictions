@@ -293,7 +293,7 @@ if __name__ == "__main__":
 
     train_data = '/home/ashenoy/ashenoy/david_retrain_pconsc4/training_pdbcull_170914_A_before160501.h5' 
     test_data = '/home/ashenoy/ashenoy/david_retrain_pconsc4/test_plm-gdca-phy-ss-rsa-eff-ali-mi_new.h5'
-    val_id_file='/home/ashenoy/ashenoy/aditi_retrain_pconsc4/IDs_training_pdbcull_170914_A_before160501_validation.txt'
+    val_id_file='/home/ashenoy/ashenoy/david_retrain_pconsc4/IDs_training_pdbcull_170914_A_before160501_validation.txt'
     
     modelfile = sys.argv[1]
 

@@ -248,12 +248,28 @@ def train(infile, modelfile, suffix="", feat_lst=[], binary_cutoffs=[], test_dat
     print(num_steps)
     print(num_steps_val)
 
-    training_generator = generator(x_train_dict, y_train_dict)
+    #training_generator = generator(x_train_dict, y_train_dict)
     validation_generator = generator(x_val_dict, y_val_dict)
 
+    #training_generator = generator_from_file(f, feat_lst, label, binary_cutoffs)
 
-    
-    # training_generator = generator_from_file(f, feat_lst, label, binary_cutoffs)
+    feats, labels = next(validation_generator)
+
+    print('----')
+
+    for k, v in labels.items():
+        print(k, v.shape)
+        if 'sscor' in k:
+            print('plotting')
+            import pylab as plt
+            v = v.squeeze()
+            
+            plt.imshow(v)
+            #np.save('matrix', v)
+            plt.show()
+
+
+    #training_generator = generator_from_file(f, feat_lst, label, binary_cutoffs)
 
     test_data = None
     if test_data_file:
@@ -305,6 +321,7 @@ if __name__ == "__main__":
     test_data = '/home/ashenoy/ashenoy/david_retrain_pconsc4/test_plm-gdca-phy-ss-rsa-eff-ali-mi_new.h5'
 
     modelfile = sys.argv[1]
+    
     suffix = os.path.splitext(modelfile)[0]
     testing = False
 

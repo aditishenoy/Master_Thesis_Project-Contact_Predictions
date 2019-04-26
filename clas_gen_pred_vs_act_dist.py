@@ -171,8 +171,27 @@ def parse_contact_matrix(data):
 def pred_dist(contacts, l_threshold, range_, pdb_parsed):
     pred_single = {}
     pred_fins = {}
-
+    '''
+    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
+    
+    for (i,j), sc in contacts.items():
+        if low < (j-i) < hi:
+            temp = (sc[:prob_len])
+            sum_prob = 0
+            for k in temp:
+                sum_prob += k
+            pred_single[(i,j)] = sum_prob
+            temp = 0
+            
+    selected = int(round(l_threshold * max(max(k) for k in pred_single)))
+    sorted_x = sorted(pred_single.items(), key=lambda kv: kv[1], reverse = True)
+    contact_list = sorted_x[:selected]
+    
+    contact_dict = {}
+    contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
+    '''
     for (i, j), sc in contacts.items():
+        #if (i, j) in contact_dict.keys():
             temp = (sc[:n_bins])
             pred = [k*l for k, l in zip(temp, bins)]
             sum_prob = 0
@@ -180,8 +199,7 @@ def pred_dist(contacts, l_threshold, range_, pdb_parsed):
                 sum_prob += p
             pred_fins[(i,j)] = sum_prob
             temp = 0
-    #print (pred_fins)
-
+    
     return (pred_fins)
 
 lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
@@ -191,7 +209,7 @@ act_dist_list = []
 pred_dist_list = []
 
 
-out_pm = 'images/pred_act_residues_values_{}'.format(model_name)
+out_pm = 'images/predprb_act__values_{}'.format(model_name)
 print()
 print(out_pm)
 print()
@@ -209,6 +227,7 @@ for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc
     pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
     #print (pdb_parsed)
     contacts_parsed = parse_contact_matrix(pred.squeeze())
+    print (contacts_parsed)
 
 
     for k, v in pdb_parsed.items():
@@ -218,16 +237,18 @@ for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc
 
     pred_parsed = {}
     pred_parsed = pred_dist(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-    
+
+    #print (pred_parsed)
+
     for (i, j), sc in actual_pdb.items():
-        if (i, j) in contacts_parsed.keys():
+        if (i, j) in pred_parsed.keys():
             #print (i,j)
             #print (sc)
             #print (pred_parsed[(i,j)])
             #act_dist_list.append(sc)
             #pred_dist_list.append(pred_parsed[(i,j)])
             output = open(out_pm, 'a')
-            print(sc, pred_parsed[(i,j)], file=output, flush=True)
+            print(sc, pred_parsed[(i,j)], contacts_parsed[(i,j)], file=output, flush=True)
             print()
             print()
             output.close()
