@@ -33,8 +33,8 @@ smooth = 1.
 ACTIVATION = ELU
 INIT = "he_normal"
 
-#reg_strength = float(sys.argv[2])
-reg_strength = float(10**-12)
+reg_strength = float(sys.argv[1])
+# reg_strength = float(10**-12)
 REG = l2(reg_strength)
 
 "-------------------------------------------------------------------"

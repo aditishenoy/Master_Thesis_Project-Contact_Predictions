@@ -1,5 +1,5 @@
 # Regression script
-# Calculates Precision, Recall (TPR), F1 Score, Specificity, FPR
+# Calculates Precision, Recall (TPR), F1 Score, Specificity, False Positive Rate
 '-------------------------------------------------------------------'
 
 import os
@@ -23,20 +23,22 @@ n_bins = int(sys.argv[1])
 if n_bins == 1:
     model_name = 'model12_mae_trained'
     model_n = 'model12'
+    selected_epoch = 14
 
 elif n_bins == 2:
     model_name = 'Mplus_AltRegDouble12_mae_trained'
     model_n = 'Mplus_AltRegDouble12'
+    selected_epoch = 75
 
 
 #Distance threshold to calculate all the other measures (8 or 15)
-thres = 8
-
-range_mode = sys.argv[2]
+thres = int(sys.argv[2])
 
 #The value n which is multiplied with L (Length of protein) to get the top n*L contacts
-threshold_length = 1
+threshold_length = int(sys.argv[3])
 
+
+range_mode = (sys.argv[4])
 
 assert 0 < threshold_length < 4., 'Invalid threshold_length to contact top contacts'
 
@@ -233,57 +235,52 @@ def to_image(cmap, N):
 lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
 
 m = load_model('{}.h5'.format(model_name))
+weights_path = 'regression/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, selected_epoch)
+weights = glob.glob(weights_path)[0]
+m.load_weights(weights)
 
-
-out_pm = 'results_wednesday24/results_{}_{}_{}'.format(thres, range_mode, model_name)
+out_pm = 'results/results_{}_{}_{}'.format(thres, range_mode, model_name)
 print()
 print(out_pm)
 print()
 output = open(out_pm, 'w')
 
+ppv = []
+rec = []
+f1_s = []
 
+spe = []
+fpr = []
 
-for epoch in tqdm.trange(1, 101, desc='Epoch'):
-    weights_path = 'regression/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, epoch)
-    weights = glob.glob(weights_path)[0]	
-    m.load_weights(weights)
+for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
+    data_batch = dict(np.load(data_file))
+    data_batch['mask'][:] = 1.
 
-    ppv = []
-    rec = []
-    f1_s = []
+    pred = m.predict(data_batch)[0]
+    prot_name = data_file.split('/')[-1].split('.')[0]
+    length = lengths[prot_name]
 
+    pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
+    contacts_parsed = parse_contact_matrix(pred.squeeze())
 
-    spe = []
-    fpr = []
+    prec = compute_ppv(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+    recall = tpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+    ppv.append(prec)
+    rec.append(recall)
 
-    for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
-        data_batch = dict(np.load(data_file))
-        data_batch['mask'][:] = 1
-        pred = m.predict(data_batch)[2]
-        prot_name = data_file.split('/')[-1].split('.')[0]
-        
-        length = lengths[prot_name]
-        pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
-        contacts_parsed = parse_contact_matrix(pred.squeeze())
-        
-        this_ppv = compute_ppv(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        recall = tpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        fp_rate = fpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-        ppv.append(this_ppv)
-        rec.append(recall)
-        
-        if (this_ppv != 0) and (recall != 0):
-            f1 = ((2*this_ppv*recall)/(this_ppv+recall))
+    if (prec != 0) and (recall != 0):
+            f1 = ((2*prec*recall)/(prec+recall))
             f1_s.append(f1)
 
-        spe.append(fp_rate)
-        fpr.append(1-fp_rate)
+    fp_rate = fpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+    spe.append(fp_rate)
+    fpr.append(1-fp_rate)
 
-    #Save metrics to file
-    output = open(out_pm, 'a')
-    print(epoch, np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), file=output, flush=True)
-    print()
-    print()
-    output.close()
+#Save metrics to file
+output = open(out_pm, 'w')
+print(np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), file=output, flush=True)
+print()
+print()
+output.close()
 
 '-------------------------------------------------------------------'

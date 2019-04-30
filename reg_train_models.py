@@ -253,6 +253,8 @@ def train(infile, modelfile, suffix="", feat_lst=[], binary_cutoffs=[], test_dat
 
     #training_generator = generator_from_file(f, feat_lst, label, binary_cutoffs)
 
+    # Plot Contact Map #
+    '''
     feats, labels = next(validation_generator)
 
     print('----')
@@ -267,10 +269,8 @@ def train(infile, modelfile, suffix="", feat_lst=[], binary_cutoffs=[], test_dat
             plt.imshow(v)
             #np.save('matrix', v)
             plt.show()
-
-
-    #training_generator = generator_from_file(f, feat_lst, label, binary_cutoffs)
-
+    '''
+   
     test_data = None
     if test_data_file:
         # if False:
@@ -300,10 +300,7 @@ def train(infile, modelfile, suffix="", feat_lst=[], binary_cutoffs=[], test_dat
 
 
     # tb = TensorBoard(log_dir="%s/" % suffix, histogram_freq=1, batch_size=1, write_images=True)
-    tb = TensorBoard(log_dir="models/%s/" % suffix, batch_size=1, write_images=True)
-
-    #model.fit_generator(training_generator, num_steps, epochs=epochs, verbose=verbose, validation_data=test_data, use_multiprocessing=True, callbacks=[reduce_lr, csv_logger, checkpoint, tb])
-    
+    tb = TensorBoard(log_dir="models/%s/" % suffix, batch_size=1, write_images=True) 
     
     model.fit_generator(training_generator, num_steps, epochs=epochs, verbose=verbose, validation_data=validation_generator, validation_steps=num_steps_val, use_multiprocessing=True, callbacks=[reduce_lr, csv_logger, checkpoint, tb])
     
@@ -335,19 +332,3 @@ if __name__ == "__main__":
 
 "-------------------------------------------------------------------"
                   
-                  
-'''
-def ppv(x, y, f=1.0, sep=5):
-    x_u = np.triu(x, k=sep)
-    y_u = np.triu(x, k=sep) > 8
-
-
-def cmap_to_list(cmap):
-    # make matrix symmetric
-    cmap = (cmap + cmap.T) / 2.
-    result = []
-    for (i, j), val in np.ndenumerate(cmap):
-        if i <= j:
-            result.append((val, i + 1, j + 1))
-    return result
-'''

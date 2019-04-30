@@ -1,5 +1,6 @@
 # This script is written for classification problem
 # The prediction is made on the distance measure with softmax activation and number of bins as 7, 12 or 26
+# Run script - python3 clas_unet_create_model.py (number of bins [7, 12, 26]) (regularizer strength = 10**-12)
 
 from __future__ import division
 
@@ -30,11 +31,14 @@ DROPOUT = 0.1
 ACTIVATION = ELU
 INIT = "he_normal"
 
-no_bins = 26 
+no_bins = int(sys.argv[1])
+ 
 kernel_size = 3
 filters = 16
 num_conv = 3
-reg_strength = float(10**-12)
+
+# reg_strength = float(10**-12)
+reg_strength = float(sys.argv[2])
 REG = l2(reg_strength)
 
 "-------------------------------------------------------------------"

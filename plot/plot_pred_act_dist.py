@@ -1,7 +1,7 @@
-import glob
-'''
+"-------------------------------------------------------------------"
+## Plot Scatter Plot for Predicted Distance vs Actual Distance 
 
-#import pylab as plt
+import glob
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.interpolate import interpn
@@ -40,7 +40,11 @@ plt.xlabel('Actual Distance')
 plt.ylabel('Predicted Distance')
 plt.savefig('images/Pred_Act_Distance_All26')
 plt.show()
-'''
+
+
+"-------------------------------------------------------------------"
+
+## Plot bar plot for probability distribution for all the bins
 
 import matplotlib.pyplot as plt; plt.rcdefaults()
 import numpy as np
@@ -81,4 +85,6 @@ plt.suptitle('Probability distribution for a correctly predicted contact (Model0
 plt.savefig('images/Correct_pred_contact_07') 
 plt.show()
 
+
+"-------------------------------------------------------------------"
 

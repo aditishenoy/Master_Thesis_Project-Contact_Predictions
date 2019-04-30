@@ -1,3 +1,4 @@
+# Support script for calculating the average of each of the individual metrics 
 import glob
 import numpy as np 
 
@@ -15,7 +16,7 @@ avg_rel_err = []
 def mean(lst): 
     return sum(lst) / len(lst) 
 
-for f in (p_1):
+for f in (p_4):
     d = np.loadtxt(f)
     avg_prec = mean(d[:,1])
     avg_rec = mean(d[:,2])

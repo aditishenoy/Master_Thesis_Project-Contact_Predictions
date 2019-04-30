@@ -24,9 +24,16 @@ from keras.models import Model, load_model
 from keras.utils import to_categorical 
 from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, TensorBoard
 
-no_bins = 26
-bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
-#bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+no_bins = int(sys.argv[1])
+
+if no_bins == 7:
+    bins = [4, 6, 8, 10, 12, 14]
+
+elif no_bins == 26:
+    bins = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16]
+
+elif no_bins == 12:
+    bins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 "-------------------------------------------------------------------"
 #Generate dictionary of features and labels from training file 
@@ -40,8 +47,6 @@ def generator_from_file(h5file, feat_lst, label, binary_cutoffs, batch_size = 1)
     key = key_lst[i]
 
     x_i_dict, mask, y, y_binary_dict, L = get_datapoint(h5file, feat_lst, label, binary_cutoffs, key)
-    
-
  
     batch_features_dict = x_i_dict
     batch_features_dict["mask"] = mask
