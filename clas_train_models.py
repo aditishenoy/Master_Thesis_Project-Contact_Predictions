@@ -24,7 +24,7 @@ from keras.models import Model, load_model
 from keras.utils import to_categorical 
 from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, TensorBoard
 
-no_bins = int(sys.argv[1])
+no_bins = int(sys.argv[2])
 
 if no_bins == 7:
     bins = [4, 6, 8, 10, 12, 14]
