@@ -1,21 +1,20 @@
-# Regression script
-# Calculates Precision, Recall (TPR), F1 Score, Specificity, False Positive Rate
-'-------------------------------------------------------------------'
+# Script to generate list of all preidcted and actual distances 
+# for the classification models (M07, M12, M26)
+# Can be generated for top L or all contacts 
 
+'-------------------------------------------------------------------'
 import os
 import glob
 import functools
-import os
 import sys
-
-import time
-import functools
 from keras.models import load_model
 import numpy as np
 from Bio import pairwise2
 
 import pylab as plt
 
+from matplotlib import pyplot as plt
+plt.rcParams['agg.path.chunksize'] = 10000
 import tqdm
 
 n_bins = int(sys.argv[1])
@@ -32,17 +31,23 @@ elif n_bins == 2:
 
 
 #Distance threshold to calculate all the other measures (8 or 15)
-thres = int(sys.argv[2])
+thres = 8
 
 #The value n which is multiplied with L (Length of protein) to get the top n*L contacts
-threshold_length = int(sys.argv[3])
+threshold_length = 1
 
 
-range_mode = (sys.argv[4])
+range_mode = 'all'
 
 assert 0 < threshold_length < 4., 'Invalid threshold_length to contact top contacts'
 
 assert range_mode in ('short', 'medium', 'long', 'all'), range_mode
+
+
+m = load_model('{}.h5'.format(model_name))
+weights_path = 'regression/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, selected_epoch)
+weights = glob.glob(weights_path)[0]
+m.load_weights(weights)
 
 '-------------------------------------------------------------------'
 
@@ -103,7 +108,7 @@ def parse_pdb(pdb):
     j = 0
     for i, aa in enumerate(aligned[1]):
         if aa != '-':
-            skipped = aligned[0][:j].count('-')
+            skipped = aligned[0][:j].count('-')  # Count for gaps in the sequence
             pdb_number = pdb_numbers[j]
             res_mapping[pdb_number] = i + 1 - skipped
             j += 1
@@ -133,124 +138,60 @@ def parse_pdb(pdb):
     for i in ca:
         for j in ca:
             if abs(i - j) > 5 and j > i:
-                cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j]) < thres 
+                cmap[(i, j)] = np.linalg.norm(ca[i] - ca[j]) 
     return cmap
-
-'-------------------------------------------------------------------'
-# Metrics
-def compute_ppv(contacts, l_threshold, range_, pdb_parsed):
-
-    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
-    contact_list = [(i, j, sc) for (i, j), sc in contacts.items() if low < j - i <= hi]
-    contact_list.sort(key=lambda x: x[2], reverse=True)
-    selected = int(round(l_threshold * max(max(k) for k in contacts)))
-    contact_list = contact_list[:selected]
-    
-    pos_counter = 0
-    total_counter = 0
-    for i, j, _ in contact_list:
-        if (i, j) in pdb_parsed:
-            if pdb_parsed[(i, j)]:
-                pos_counter += 1
-            total_counter += 1
-
-    if total_counter == 0:
-        total_counter = 1
-    return pos_counter / total_counter
-    
-
-
-def tpr_calc(contacts, l_threshold, range_, pdb_parsed):
-    actual_pdb = {}
-
-    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
-    contact_list = [(i, j, sc) for (i, j), sc in contacts.items() if low < j - i <= hi]
-    contact_list.sort(key=lambda x: x[2], reverse=True)
-    selected = int(round(l_threshold * max(max(k) for k in contacts)))
-    contact_list = contact_list[:selected]
-    
-    contact_dict = {}
-    contact_dict =  dict(((i,j), y) for i, j, y in contact_list)
-
-    count = 0
-    tot_count = 0 
-
-    for (i, j) in pdb_parsed.keys():
-        if pdb_parsed[(i,j)]:
-            if (i, j) in contact_dict.keys():
-                count += 1
-            tot_count += 1
-        
-    if tot_count == 0:
-        tot_count = 1
-    
-    return (count/tot_count)
-
-def fpr_calc(contacts, l_threshold, range_, pdb_parsed):
-    actual_pdb = {}
-
-    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
-    contact_list = [(i, j, sc) for (i, j), sc in contacts.items() if low < j - i <= hi]
-    contact_list.sort(key=lambda x: x[2], reverse=True)
-    selected = int(round(l_threshold * max(max(k) for k in contacts)))
-    contact_list = contact_list[:selected]
-    
-    contact_dict = {}
-    contact_dict =  dict(((i,j), y) for i, j, y in contact_list)
-
-    count = 0
-    tot_count = 0 
-
-    for (i, j) in pdb_parsed.keys():
-        if not (pdb_parsed[(i,j)]):
-            if (i, j) in contact_dict.keys():
-                count += 1
-            tot_count += 1
-        
-    if tot_count == 0:
-        tot_count = 1
-    
-    return (count/tot_count)
-
-'-------------------------------------------------------------------'
 
 def parse_contact_matrix(data):
     contacts = dict()
-    new_data = (data + data.T) / 2
+    #new_data = (data + data.T) / 2
     for i in range(data.shape[0] - 4):
         for j in range(i + 5, data.shape[1]):
-            contacts[(i + 1, j + 1)] = new_data[i, j]  
+            contacts[(i + 1, j + 1)] = data[i, j]
 
     return contacts
 
-def to_image(cmap, N):
-    data = np.zeros((N, N))
-    for (i,j), v in cmap.items():
-        if v:
-            data[i-1, j-1] = 1
 
-    return data
 
-'-------------------------------------------------------------------'
+def pred_dist(contacts, l_threshold, range_, pdb_parsed):
+    pred_single = {}
+    pred_fins = {}
+
+    low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
+    contact_list = [(i, j, sc) for (i, j), sc in contacts.items() if low < j - i <= hi]
+    contact_list.sort(key=lambda x: x[2], reverse=True)
+    selected = int(round(l_threshold * max(max(k) for k in contacts)))
+    contact_list = contact_list[:selected]
+
+    
+    contact_dict = {}
+    contact_dict =  dict(((i,j), y) for i, j, y in contact_list)
+    #print (contact_dict)
+
+    import math 
+    for (i, j), sc in contacts.items():
+        #if (i, j) in contact_dict.keys():
+            #print (i, j)
+            sum_prob = 0
+            sum_prob = thres*((math.sqrt(1/sc))-1)
+            #print (sc)
+            if (sc < 15):
+                pred_fins[(i,j)] = sum_prob
+
+    return (pred_fins)
+
 lengths = dict((line.split(',')[0], int(line.split(',')[1])) for line in open('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/lengths.txt'))
 
-m = load_model('{}.h5'.format(model_name))
-weights_path = 'regression/models/{}/{}_epo{:02d}-*.h5'.format(model_name, model_n, selected_epoch)
-weights = glob.glob(weights_path)[0]
-m.load_weights(weights)
+actual_pdb = {}
+act_dist_list = []
+pred_dist_list = []
 
-out_pm = 'results/results_{}_{}_{}'.format(thres, range_mode, model_name)
+
+out_pm = '/home/ashenoy/ashenoy/Thesis_unetplus_V.0.1/images/reg_pred_act_ALLall_values_{}'.format(model_name)
 print()
 print(out_pm)
 print()
 output = open(out_pm, 'w')
 
-ppv = []
-rec = []
-f1_s = []
-
-spe = []
-fpr = []
 
 for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmark_set/*.npz'), desc='Protein'):
     data_batch = dict(np.load(data_file))
@@ -259,28 +200,32 @@ for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc
     pred = m.predict(data_batch)[0]
     prot_name = data_file.split('/')[-1].split('.')[0]
     length = lengths[prot_name]
-
+    
     pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
+    #print (pdb_parsed)
     contacts_parsed = parse_contact_matrix(pred.squeeze())
+    #print (contacts_parsed)
 
-    prec = compute_ppv(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-    recall = tpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-    ppv.append(prec)
-    rec.append(recall)
+    pred_parsed = {}
+    pred_parsed = pred_dist(contacts_parsed, threshold_length, range_mode, pdb_parsed)
+    
+    for k, v in pdb_parsed.items():
+        if (v < 100):
+            actual_pdb[k] = v
 
-    if (prec != 0) and (recall != 0):
-            f1 = ((2*prec*recall)/(prec+recall))
-            f1_s.append(f1)
+    for (i, j), sc in actual_pdb.items():
+        if (i, j) in pred_parsed.keys():
+            #print (i,j)
+            #print (sc)
+            #print (pred_parsed[(i,j)])
+            #act_dist_list.append(sc)
+            #pred_dist_list.append(pred_parsed[(i,j)])
+            output = open(out_pm, 'a')
+            print(sc, pred_parsed[(i,j)], file=output, flush=True)
+            print()
+            print()
+            output.close()
 
-    fp_rate = fpr_calc(contacts_parsed, threshold_length, range_mode, pdb_parsed)
-    spe.append(fp_rate)
-    fpr.append(1-fp_rate)
 
-#Save metrics to file
-output = open(out_pm, 'w')
-print(np.mean(ppv), np.mean(rec), np.mean(f1_s), np.mean(spe), np.mean(fpr), file=output, flush=True)
-print()
-print()
-output.close()
-
-'-------------------------------------------------------------------'
+#print (act_dist_list)
+#print (pred_dist_list)

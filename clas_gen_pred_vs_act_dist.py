@@ -1,4 +1,4 @@
-# Script to generate list of all preidcted and actual distances 
+# Script to generate list of all predicted and actual distances 
 # for the classification models (M07, M12, M26)
 # Can be generated for top L or all contacts 
 
@@ -175,7 +175,7 @@ def parse_contact_matrix(data):
 def pred_dist(contacts, l_threshold, range_, pdb_parsed):
     pred_single = {}
     pred_fins = {}
-    '''
+
     low, hi = dict(short=(5, 12), medium=(12, 23), long=(23, 10000), all=(5, 100000))[range_]
     
     for (i,j), sc in contacts.items():
@@ -193,15 +193,16 @@ def pred_dist(contacts, l_threshold, range_, pdb_parsed):
     
     contact_dict = {}
     contact_dict =  dict(((i,j), y) for (i,j), y in contact_list)
-    '''
+
     for (i, j), sc in contacts.items():
-        #if (i, j) in contact_dict.keys():
+        if (i, j) in contact_dict.keys():
             temp = (sc[:n_bins])
             pred = [k*l for k, l in zip(temp, bins)]
             sum_prob = 0
             for p in pred:
                 sum_prob += p
-            pred_fins[(i,j)] = sum_prob
+            if sum_prob < thres:
+                pred_fins[(i,j)] = sum_prob
             temp = 0
     
     return (pred_fins)
@@ -213,7 +214,7 @@ act_dist_list = []
 pred_dist_list = []
 
 
-out_pm = 'images/predprb_act__values_{}'.format(model_name)
+out_pm = '/home/ashenoy/ashenoy/Thesis_unetplus_V.0.1/images/clas_pred_act_top_values_{}'.format(model_name)
 print()
 print(out_pm)
 print()
@@ -231,7 +232,7 @@ for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc
     pdb_parsed = parse_pdb('/home/ashenoy/ashenoy/david_retrain_pconsc4/testing/benchmarkset/{}/native.pdb'.format(prot_name))
     #print (pdb_parsed)
     contacts_parsed = parse_contact_matrix(pred.squeeze())
-    print (contacts_parsed)
+    #print (contacts_parsed)
 
 
     for k, v in pdb_parsed.items():
@@ -252,7 +253,7 @@ for data_file in tqdm.tqdm(glob.glob('/home/ashenoy/ashenoy/david_retrain_pconsc
             #act_dist_list.append(sc)
             #pred_dist_list.append(pred_parsed[(i,j)])
             output = open(out_pm, 'a')
-            print(sc, pred_parsed[(i,j)], contacts_parsed[(i,j)], file=output, flush=True)
+            print(sc, pred_parsed[(i,j)], file=output, flush=True)
             print()
             print()
             output.close()

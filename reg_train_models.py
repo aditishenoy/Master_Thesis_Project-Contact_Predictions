@@ -254,7 +254,7 @@ def train(infile, modelfile, suffix="", feat_lst=[], binary_cutoffs=[], test_dat
     #training_generator = generator_from_file(f, feat_lst, label, binary_cutoffs)
 
     # Plot Contact Map #
-    '''
+
     feats, labels = next(validation_generator)
 
     print('----')
@@ -267,10 +267,11 @@ def train(infile, modelfile, suffix="", feat_lst=[], binary_cutoffs=[], test_dat
             v = v.squeeze()
             
             plt.imshow(v)
+            plt.suptitle('Contact Map for Protein 1H97A generated using U-Net++')
+            plt.savefig('/home/ashenoy/ashenoy/Thesis_unetplus_V.0.1/images/ContactMap_modelplus_1H97A')
             #np.save('matrix', v)
             plt.show()
-    '''
-   
+
     test_data = None
     if test_data_file:
         # if False:
